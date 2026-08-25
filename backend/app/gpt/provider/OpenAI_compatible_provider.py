@@ -22,16 +22,21 @@ class OpenAICompatibleProvider:
           - 部分代理 / 自建供应商不实现 /v1/models（如某些 OpenAI 兼容网关）
           - 部分供应商 key 在没有 inference 权限时 /v1/models 仍返回 200
         最终用户跑的就是 chat.completions.create，所以直接测它最忠实。
-        max_tokens=1 + temperature=0 让请求开销 < 0.0001 美元、延迟 < 2s。
+        max_tokens=16 + temperature=0 让请求开销可忽略。
+        为什么不是 max_tokens=1：部分推理型网关（如实测的 infer ai /
+        api.inferaiapi.com）在 max_tokens=1 时上游直接挂起不响应，
+        16 能兼容这类网关且成本几乎不变。
+        timeout 30s：实测慢网关（infer ai）单次 chat 响应可达 13~15s，
+        原 15s 太贴边会偶发误报失败。
         """
         try:
             client = build_openai_client(
-                api_key, base_url, key_label="模型供应商的 API Key", timeout=15.0,
+                api_key, base_url, key_label="模型供应商的 API Key", timeout=30.0,
             )
             client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": "ping"}],
-                max_tokens=1,
+                max_tokens=16,
                 temperature=0,
             )
             logging.info(f"连通性测试成功（model={model}）")

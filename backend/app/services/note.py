@@ -40,6 +40,7 @@ from app.utils.output_paths import (
     task_status_path,
     transcript_json_path,
 )
+from app.utils.path_helper import resolve_app_path
 from app.utils.screenshot_marker import extract_screenshot_timestamps
 from app.utils.status_code import StatusCode
 from app.utils.video_helper import generate_screenshot
@@ -56,7 +57,8 @@ BACKEND_PORT = os.getenv("BACKEND_PORT", "8483")
 BACKEND_BASE_URL = f"{API_BASE_URL}:{BACKEND_PORT}"
 
 # 输出目录：Markdown 与 JSON 结果分开存放，避免混杂。
-IMAGE_OUTPUT_DIR = os.getenv("OUT_DIR", "./static/screenshots")
+# 锚定到后端目录（main.py 所在目录），与启动 CWD 无关。
+IMAGE_OUTPUT_DIR = resolve_app_path(os.getenv("OUT_DIR", "./static/screenshots"))
 # 图片基础 URL（用于生成 Markdown 中的图片链接，需前端静态目录对应）
 IMAGE_BASE_URL = os.getenv("IMAGE_BASE_URL", "/static/screenshots")
 

@@ -11,6 +11,14 @@ import subprocess
 
 from app.utils.video_helper import save_cover_to_static
 from app.utils.ffmpeg_command import ffmpeg_executable
+from app.utils.path_helper import resolve_app_path
+
+
+def _resolve_local_video_url(video_url: str) -> str:
+    """把 /uploads/xxx 形式的 URL 解析为实际上传目录里的文件路径（与启动 CWD 无关）。"""
+    if video_url.startswith('/uploads'):
+        return os.path.normpath(os.path.join(resolve_app_path('uploads'), video_url.lstrip('/')))
+    return video_url
 
 
 class LocalDownloader(Downloader, ABC):
@@ -90,10 +98,7 @@ class LocalDownloader(Downloader, ABC):
         """
         处理本地文件路径，返回视频文件路径
         """
-        if video_url.startswith('/uploads'):
-            project_root = os.getcwd()
-            video_url = os.path.join(project_root, video_url.lstrip('/'))
-            video_url = os.path.normpath(video_url)
+        video_url = _resolve_local_video_url(video_url)
 
         if not os.path.exists(video_url):
             raise FileNotFoundError()
@@ -108,10 +113,7 @@ class LocalDownloader(Downloader, ABC):
         """
         处理本地文件路径，返回音频元信息
         """
-        if video_url.startswith('/uploads'):
-            project_root = os.getcwd()
-            video_url = os.path.join(project_root, video_url.lstrip('/'))
-            video_url = os.path.normpath(video_url)
+        video_url = _resolve_local_video_url(video_url)
 
         if not os.path.exists(video_url):
             raise FileNotFoundError(f"本地文件不存在: {video_url}")

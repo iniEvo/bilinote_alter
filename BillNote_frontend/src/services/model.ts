@@ -20,7 +20,10 @@ export const addProvider = async (data: any, opts?: CallOpts) => {
 }
 
 export const testConnection = async (data: any, opts?: CallOpts) => {
-  return await request.post('/connect_test', data, cfg(opts))
+  // 连通性测试要等后端真实发一条 chat completion，慢网关（如实测的 infer ai）
+  // 单次响应可达 13~15s，全局默认 10s 超时会在后端成功前掐断，
+  // 误报「请求失败，请检查网络连接」，所以这里单独放宽到 60s。
+  return await request.post('/connect_test', data, { ...cfg(opts), timeout: 60000 })
 }
 
 export const fetchModels = async (providerId: string) => {

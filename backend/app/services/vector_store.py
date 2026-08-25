@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import chromadb
@@ -8,10 +9,25 @@ from chromadb.config import Settings
 
 from app.utils.logger import get_logger
 from app.utils.output_paths import note_json_path
+from app.utils.path_helper import resolve_app_path, resolve_workspace_path
 
 logger = get_logger(__name__)
 
-VECTOR_DB_DIR = os.getenv("VECTOR_DB_DIR", "vector_db")
+def _resolve_vector_db_dir() -> str:
+    """锚定向量库目录，与启动 CWD 无关。
+
+    - env 显式设置：相对路径按后端目录解析（Docker 下随 ./backend:/app 挂载持久化）
+    - 未设置：优先沿用仓库根目录下已有的 vector_db（历史数据位置），否则放后端目录
+    """
+    raw = os.getenv("VECTOR_DB_DIR")
+    if raw:
+        return resolve_app_path(raw)
+    legacy = Path(resolve_workspace_path("vector_db"))
+    if legacy.exists():
+        return str(legacy)
+    return resolve_app_path("vector_db")
+
+VECTOR_DB_DIR = _resolve_vector_db_dir()
 
 
 def _chunk_markdown(markdown: str) -> list[dict]:

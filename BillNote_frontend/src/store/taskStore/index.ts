@@ -933,9 +933,8 @@ export const useTaskStore = create<TaskStore>()(
             })
 
             // Use the server response as the source of truth for the visible history window.
-            // Tasks missing from the refreshed list are usually deleted or intentionally hidden
-            // (for example, failed tasks without results), so keeping them locally creates
-            // ghost cards such as "still transcribing" after the backend has already moved on.
+            // Tasks missing from the refreshed list were deleted by the user; the server
+            // keeps failed tasks in the list so they render as failed cards with retry.
             nextTasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             return {
               tasks: nextTasks,

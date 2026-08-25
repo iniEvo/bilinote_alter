@@ -3,17 +3,24 @@ import re
 from pathlib import Path
 from typing import Optional
 
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+from app.utils.path_helper import APP_ROOT
 
 
 def _resolve_output_dir(env_name: str, default_relative: str) -> Path:
+    """把输出目录锚定到后端目录（main.py 所在目录），与启动 CWD 无关。
+
+    兼容历史 env 写法：.env 里的 'backend/note_results' 是「仓库根视角」，
+    这里剥掉 backend/ 前缀后按 APP_ROOT 解析，本地与 Docker 行为一致：
+      - 本地源码运行：BiliNote/backend/<name>
+      - Docker（./backend:/app）：/app/<name>（随挂载卷持久化）
+    """
     raw = os.getenv(env_name)
-    if raw:
-        path = Path(raw).expanduser()
-        if not path.is_absolute():
-            path = (_WORKSPACE_ROOT / path).resolve()
-        return path
-    return (_WORKSPACE_ROOT / default_relative).resolve()
+    relative = (raw or default_relative).strip()
+    while relative.startswith("./"):
+        relative = relative[2:]
+    if relative.startswith("backend/"):
+        relative = relative[len("backend/"):]
+    return (Path(APP_ROOT) / relative).resolve()
 
 
 NOTE_OUTPUT_DIR = _resolve_output_dir('NOTE_OUTPUT_DIR', 'backend/note_results')

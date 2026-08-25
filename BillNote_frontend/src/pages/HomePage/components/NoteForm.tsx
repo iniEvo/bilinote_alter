@@ -893,9 +893,11 @@ const NoteForm = () => {
                 <div className="text-sm font-semibold text-slate-900">创建新笔记</div>
                 <p className="mt-1 text-sm text-slate-500">输入视频链接、选择模型与风格，即可生成结构化内容。</p>
               </div>
-              <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
-                {batchCount > 0 ? `批量 ${batchCount} 条` : '单条模式'}
-              </div>
+              {batchCount > 0 && (
+                <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
+                  {`批量 ${batchCount} 条`}
+                </div>
+              )}
             </div>
             <div className="mt-4">
               <FormButton />
@@ -912,7 +914,7 @@ const NoteForm = () => {
                   <FormItem>
                     <Select disabled={!!editing} value={field.value} onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="h-11 w-32 rounded-xl border-slate-200 bg-white shadow-sm">
+                        <SelectTrigger className="h-11 w-40 rounded-xl border-slate-200 bg-white shadow-sm sm:w-48">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -931,22 +933,22 @@ const NoteForm = () => {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="video_url"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <Input
-                      disabled={!!editing && batchCount === 0}
-                      placeholder={platform === 'local' ? '请输入本地视频路径' : '可输入单个链接，或留空使用下方批量输入'}
-                      className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
-                      {...field}
-                    />
-                    <FormMessage style={{ display: 'none' }} />
-                  </FormItem>
-                )}
-              />
             </div>
+            <FormField
+              control={form.control}
+              name="video_url"
+              render={({ field }) => (
+                <FormItem className="mt-2">
+                  <Input
+                    disabled={!!editing && batchCount === 0}
+                    placeholder={platform === 'local' ? '请输入本地视频路径' : '可输入单个链接，或留空使用下方批量输入'}
+                    className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
+                    {...field}
+                  />
+                  <FormMessage style={{ display: 'none' }} />
+                </FormItem>
+              )}
+            />
 
             {platform !== 'local' && (
               <FormField
@@ -955,8 +957,9 @@ const NoteForm = () => {
                 render={({ field }) => (
                   <FormItem className="mt-3">
                     <Textarea
+                      disabled={!!editing && batchCount === 0}
                       placeholder="批量生成：每行一个视频链接"
-                      className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner"
+                      className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner disabled:cursor-not-allowed disabled:opacity-60"
                       {...field}
                     />
                     <div className="text-xs text-slate-500">当前识别 {batchCount} 条批量链接</div>

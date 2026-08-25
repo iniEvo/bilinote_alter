@@ -21,6 +21,16 @@ from typing import Dict, List
 
 from app.utils.logger import get_logger
 
+try:
+    from app.utils.path_helper import resolve_app_path
+except ImportError:  # 兼容按文件路径直接加载本模块的单元测试
+    def resolve_app_path(p):
+        path = os.path.expanduser(str(p))
+        if os.path.isabs(path):
+            return path
+        app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        return os.path.normpath(os.path.join(app_root, path))
+
 logger = get_logger(__name__)
 
 # 内置模型：size → faster-whisper 兼容的 HF repo_id（CTranslate2 转换版）。
@@ -64,8 +74,9 @@ def hf_cache_dirname(repo_id: str) -> str:
 class WhisperModelRegistry:
     """内置 + 用户自定义的 whisper 模型映射，自定义部分持久化到 JSON。"""
 
-    def __init__(self, filepath: str = "config/whisper_models.json"):
-        self.path = Path(filepath)
+    def __init__(self, filepath: str = None):
+        # 锚定到后端目录（main.py 所在目录），与启动 CWD 无关
+        self.path = Path(resolve_app_path(filepath or "config/whisper_models.json"))
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     # ---- 持久化 ----

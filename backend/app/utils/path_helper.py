@@ -4,6 +4,29 @@ from pathlib import Path
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 
+# 后端目录（main.py 所在目录）。本地源码运行 = 仓库下 backend/；
+# Docker 里 = /app（compose 把宿主机 ./backend 绑挂到 /app）。
+# 所有产物路径都锚定到这里，彻底摆脱「从哪个目录启动」的影响。
+APP_ROOT = PROJECT_ROOT
+# 仓库根目录（backend/ 的上一级）。仅用于兼容历史数据位置（如根目录 vector_db、bili_note.db）。
+WORKSPACE_ROOT = os.path.dirname(APP_ROOT)
+
+
+def resolve_app_path(p) -> str:
+    """相对路径锚定到后端目录（APP_ROOT），绝对路径原样返回。"""
+    path = os.path.expanduser(str(p))
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(APP_ROOT, path))
+
+
+def resolve_workspace_path(p) -> str:
+    """相对路径锚定到仓库根目录（WORKSPACE_ROOT），绝对路径原样返回。"""
+    path = os.path.expanduser(str(p))
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(WORKSPACE_ROOT, path))
+
 
 def get_data_dir():
     if getattr(sys, 'frozen', False):

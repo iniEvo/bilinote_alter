@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "source_signature": "sig-1",
+  "phase": "merge",
+  "partials": [
+    "part-a",
+    "part-b"
+  ],
+  "updated_at": "2026-08-25T10:24:18.615684+00:00"
+}

@@ -159,6 +159,18 @@ def list_recent_tasks(limit: int = 100, offset: int = 0):
         db.close()
 
 
+def list_all_tasks():
+    db = next(get_db())
+    try:
+        tasks = db.query(VideoTask).order_by(VideoTask.created_at.desc()).all()
+        return _attach_request_payload_list(tasks)
+    except Exception as e:
+        logger.error(f'Failed to list all tasks: {e}')
+        return []
+    finally:
+        db.close()
+
+
 def list_tasks_by_batch(batch_id: str):
     db = next(get_db())
     try:

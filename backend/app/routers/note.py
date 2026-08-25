@@ -19,6 +19,7 @@ from app.db.video_task_dao import (
     get_latest_task_record,
     get_task_record,
     insert_video_task,
+    list_all_tasks,
     list_recent_tasks,
     list_tasks_by_batch,
     update_task_request_payload,
@@ -40,6 +41,7 @@ from app.utils.output_paths import (
 )
 from app.utils.response import ResponseWrapper as R
 from app.utils.url_parser import extract_video_id
+from app.utils.path_helper import resolve_app_path
 from app.validators.video_url_validator import is_supported_video_url
 
 
@@ -106,6 +108,10 @@ class BatchResumeRequest(BaseModel):
     batch_id: str
     include_pending: Optional[bool] = False
     limit: Optional[int] = None
+
+
+class FixNoteTitlesRequest(BaseModel):
+    fetch_online: Optional[bool] = False
 
 
 class VideoRequest(BaseModel):
@@ -179,7 +185,8 @@ class BatchVideoRequest(BaseModel):
         return cleaned
 
 
-UPLOAD_DIR = 'uploads'
+# 锚定到后端目录（main.py 所在目录），与启动 CWD 无关
+UPLOAD_DIR = resolve_app_path('uploads')
 
 
 def save_note_to_file(task_id: str, note):
@@ -979,6 +986,168 @@ def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: Ba
     })
 
 
+def _looks_like_placeholder_title(title: Optional[str], *, video_id: Optional[str] = None, source_url: Optional[str] = None) -> bool:
+    """标题为空，或只是拿视频 ID / 链接充当标题时，视为「未按视频标题命名」。"""
+    text = str(title or '').strip()
+    if not text:
+        return True
+    placeholders = {str(video_id or '').strip(), str(source_url or '').strip()}
+    placeholders.discard('')
+    return text in placeholders
+
+
+def _fetch_video_title_online(platform: Optional[str], video_url: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """在线获取视频标题（不下载视频），返回 (标题, 失败原因)。"""
+    url = str(video_url or '').strip()
+    if not url.lower().startswith(('http://', 'https://')):
+        return None, '缺少可用的视频链接'
+    try:
+        if platform == 'douyin':
+            # 抖音必须复用下载器的 Cookie / 请求配置，否则报 Fresh cookies
+            import tempfile
+
+            from app.downloaders.douyin_downloader import DouyinDownloader
+            info = DouyinDownloader()._extract_info_with_ytdlp(url, download=False, output_dir=tempfile.gettempdir())
+        else:
+            import yt_dlp
+            from app.downloaders.yt_dlp_options import apply_ffmpeg_location
+
+            opts = {
+                'skip_download': True,
+                'quiet': True,
+                'no_warnings': True,
+                'noplaylist': True,
+                'socket_timeout': 15,
+            }
+            if platform == 'bilibili':
+                opts['http_headers'] = {'Referer': 'https://www.bilibili.com'}
+            try:
+                apply_ffmpeg_location(opts)
+            except Exception:
+                pass
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        title = (info or {}).get('title')
+        title = str(title).strip() or None
+        return (title, None if title else '未返回有效标题')
+    except Exception as exc:
+        logger.warning('在线获取视频标题失败 (%s): %s', url, exc)
+        message = str(exc)
+        if 'Fresh cookies' in message or 'Cookie 已失效' in message:
+            return None, '抖音 Cookie 已失效，请在设置中更新最新 Cookie 后重试'
+        return None, message[:120]
+
+
+def _rename_markdown_to_title(task_id: str, title: str) -> bool:
+    legacy_path = note_markdown_path(task_id)
+    titled_path = note_markdown_path(task_id, title)
+    if legacy_path == titled_path:
+        return False
+    try:
+        if legacy_path.exists():
+            titled_path.write_text(legacy_path.read_text(encoding='utf-8'), encoding='utf-8')
+            legacy_path.unlink()
+            return True
+    except Exception as exc:
+        logger.warning('重命名 markdown 文件失败 (task_id=%s): %s', task_id, exc)
+    return False
+
+
+def _sync_note_json_title(task_id: str, title: str) -> bool:
+    """把修复后的标题同步回笔记结果 JSON 的 audio_meta.title。
+
+    历史卡片显示的名称优先取该字段；不同步的话前端刷新后仍会显示旧占位名。
+    """
+    result_path = note_json_path(task_id)
+    if not result_path.exists():
+        return False
+    try:
+        content = json.loads(result_path.read_text(encoding='utf-8'))
+        audio_meta = content.get('audio_meta')
+        if not isinstance(audio_meta, dict):
+            return False
+        audio_meta['title'] = title
+        result_path.write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding='utf-8')
+        return True
+    except Exception as exc:
+        logger.warning('同步笔记 JSON 标题失败 (task_id=%s): %s', task_id, exc)
+        return False
+
+
+@router.post('/fix_note_titles')
+def fix_note_titles(data: FixNoteTitlesRequest):
+    """把未按视频标题命名的笔记统一重命名为视频标题。
+
+    判定口径：DB 标题或笔记 JSON 的 audio_meta.title 任一为空、等于视频 ID
+    或等于来源链接的记录视为「未命名」。优先使用本地已缓存的真实标题；
+    本地缺失且 fetch_online 开启时，再通过 yt-dlp 在线补取（不下载视频）。
+    """
+    rows = list_all_tasks()
+    fixed_local = []
+    fixed_online = []
+    failed = []
+
+    for row in rows:
+        row_video_id = getattr(row, 'video_id', None)
+        row_source_url = getattr(row, 'source_url', None)
+        task_id = row.task_id
+
+        result_content = _load_note_result(task_id)
+        audio_meta = (result_content.get('audio_meta') or {}) if isinstance(result_content, dict) else {}
+        json_title = str(audio_meta.get('title') or '').strip() or None
+
+        db_title = getattr(row, 'title', None)
+        online_error: Optional[str] = None
+        db_needs_fix = _looks_like_placeholder_title(db_title, video_id=row_video_id, source_url=row_source_url)
+        json_needs_fix = _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url)
+        if not db_needs_fix and not json_needs_fix:
+            continue
+
+        # 候选标题优先级：本地 JSON 真实标题 > DB 真实标题 > 在线补取
+        db_title_clean = str(db_title or '').strip() or None
+        candidate = None
+        if not _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url):
+            candidate = json_title
+        elif not _looks_like_placeholder_title(db_title_clean, video_id=row_video_id, source_url=row_source_url):
+            candidate = db_title_clean
+        if not candidate and data.fetch_online:
+            candidate, online_error = _fetch_video_title_online(getattr(row, 'platform', None), getattr(row, 'source_url', None) or row_source_url)
+
+        if candidate and _looks_like_placeholder_title(candidate, video_id=row_video_id, source_url=row_source_url):
+            candidate = None
+
+        if not candidate:
+            failed.append({'task_id': task_id, 'reason': online_error or '未找到可用标题'})
+            continue
+
+        ok = True
+        if db_needs_fix and not update_task_title(task_id, candidate):
+            failed.append({'task_id': task_id, 'reason': 'update_failed'})
+            ok = False
+        if ok and json_needs_fix:
+            _sync_note_json_title(task_id, candidate)
+            _rename_markdown_to_title(task_id, candidate)
+
+        if not ok:
+            continue
+        entry = {'task_id': task_id, 'title': candidate}
+        if data.fetch_online and db_needs_fix and json_title is None:
+            fixed_online.append(entry)
+        else:
+            fixed_local.append(entry)
+
+    total_fixed = len(fixed_local) + len(fixed_online)
+    logger.info('fix_note_titles 完成: 共检查 %s 条, 修复 %s 条 (本地 %s / 在线 %s), 失败 %s 条',
+                len(rows), total_fixed, len(fixed_local), len(fixed_online), len(failed))
+    return R.success({
+        'total_checked': len(rows),
+        'fixed_count': total_fixed,
+        'local_fixed': fixed_local,
+        'online_fixed': fixed_online,
+        'failed': failed,
+    })
+
+
 @router.get('/history')
 def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True):
     items = []
@@ -997,8 +1166,9 @@ def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True)
             item = _build_task_item(row.task_id, row=row)
             if not item['result'] and not include_pending:
                 continue
-            if not item['result'] and item['status'] == TaskStatus.FAILED.value:
-                continue
+            # Failed tasks are kept in the list (with their failure message) so the
+            # frontend can render a failed card with a retry action instead of the
+            # task silently disappearing from the history window.
             items.append(item)
 
     items.sort(

@@ -6,6 +6,7 @@ from typing import Optional, Union
 from app.enmus.note_enums import DownloadQuality
 from app.models.notes_model import AudioDownloadResult
 from app.models.transcriber_model import TranscriptResult
+from app.utils.path_helper import resolve_app_path
 from os import getenv
 QUALITY_MAP = {
     "fast": "32",
@@ -18,7 +19,8 @@ class Downloader(ABC):
     def __init__(self):
         #TODO 需要修改为可配置
         self.quality = QUALITY_MAP.get('fast')
-        self.cache_data=getenv('DATA_DIR')
+        # 锚定到后端目录（main.py 所在目录），与启动 CWD 无关
+        self.cache_data = resolve_app_path(getenv('DATA_DIR') or 'data')
 
     @abstractmethod
     def download(self, video_url: str, output_dir: str = None,

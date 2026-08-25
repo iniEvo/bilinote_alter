@@ -1,4 +1,6 @@
 import os
+import tempfile
+import unittest
 from unittest.mock import Mock, patch
 
 import requests
@@ -6,6 +8,18 @@ import requests
 from app.downloaders.douyin_downloader import DouyinDownloader
 from app.exceptions.biz_exception import BizException
 from app.utils.url_parser import extract_video_id
+
+
+class _TmpMediaCleanup:
+    """把 download 测试的输出指到独立临时目录，并在用例结束后清理，
+    避免缓存文件残留在 /tmp 导致下次运行误入「复用缓存」分支。"""
+
+    def setup_method(self, *args, **kwargs):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = self._tmp.name
+
+    def teardown_method(self, *args, **kwargs):
+        self._tmp.cleanup()
 
 
 @patch.object(DouyinDownloader, 'extract_video_id', return_value='7676422267886259510')
@@ -68,83 +82,86 @@ def test_fetch_video_info_raises_biz_exception_for_missing_aweme_detail(
 
 @patch.object(DouyinDownloader, 'fetch_video_info')
 @patch.object(DouyinDownloader, '_extract_info_with_ytdlp')
-def test_download_raises_cookie_refresh_biz_exception(mock_ytdlp, mock_fetch):
-    mock_fetch.return_value = {
-        'aweme_detail': {
-            'aweme_id': '7675967406614809865',
-            'item_title': 'title',
-            'caption': 'caption',
-            'video': {
-                'duration': 10,
-                'cover_original_scale': {'url_list': ['https://example.com/cover.jpg']},
-            },
-            'video_tag': [],
+class TestDownloadWithTmpDir(_TmpMediaCleanup, unittest.TestCase):
+    def test_download_raises_cookie_refresh_biz_exception(self, mock_ytdlp, mock_fetch):
+        mock_fetch.return_value = {
+            'aweme_detail': {
+                'aweme_id': '7675967406614809865',
+                'item_title': 'title',
+                'caption': 'caption',
+                'video': {
+                    'duration': 10,
+                    'cover_original_scale': {'url_list': ['https://example.com/cover.jpg']},
+                },
+                'video_tag': [],
+            }
         }
-    }
-    mock_ytdlp.side_effect = BizException(
-        code=400002,
-        message='抖音 Cookie 已失效，请在设置中更新最新浏览器 Cookie 后重试',
-    )
+        mock_ytdlp.side_effect = BizException(
+            code=400002,
+            message='抖音 Cookie 已失效，请在设置中更新最新浏览器 Cookie 后重试',
+        )
 
-    downloader = DouyinDownloader()
+        downloader = DouyinDownloader()
 
-    try:
-        downloader.download('https://www.douyin.com/video/7675967406614809865', output_dir='/tmp')
-        assert False, 'expected BizException'
-    except BizException as exc:
-        assert exc.code == 400002
-        assert 'Cookie 已失效' in exc.message
+        try:
+            downloader.download(
+                'https://www.douyin.com/video/7675967406614809865',
+                output_dir=self.tmpdir,
+            )
+            assert False, 'expected BizException'
+        except BizException as exc:
+            assert exc.code == 400002
+            assert 'Cookie 已失效' in exc.message
 
-
-@patch.object(DouyinDownloader, 'fetch_video_info')
-@patch.object(DouyinDownloader, '_extract_info_with_ytdlp')
-@patch('app.downloaders.douyin_downloader.subprocess.run')
-@patch('app.downloaders.douyin_downloader.requests.get')
-def test_download_uses_ytdlp_media_url(mock_get, mock_subprocess, mock_ytdlp, mock_fetch):
-    mock_fetch.return_value = {
-        'aweme_detail': {
-            'aweme_id': '7675967406614809865',
-            'item_title': 'title',
-            'caption': 'caption',
-            'video': {
-                'duration': 10,
-                'cover_original_scale': {'url_list': ['https://example.com/cover.jpg']},
-            },
-            'video_tag': [],
+    def test_download_uses_ytdlp_media_url(self, mock_ytdlp, mock_fetch):
+        mock_fetch.return_value = {
+            'aweme_detail': {
+                'aweme_id': '7675967406614809865',
+                'item_title': 'title',
+                'caption': 'caption',
+                'video': {
+                    'duration': 10,
+                    'cover_original_scale': {'url_list': ['https://example.com/cover.jpg']},
+                },
+                'video_tag': [],
+            }
         }
-    }
-    mock_ytdlp.return_value = {
-        'id': '7675967406614809865',
-        'title': 'title',
-        'duration': 10,
-        'thumbnail': 'https://example.com/cover.jpg',
-        'ext': 'mp4',
-        'url': 'https://example.com/video.mp4',
-        'http_headers': {'User-Agent': 'ua'},
-    }
-    response = Mock()
-    response.raise_for_status.return_value = None
-    response.iter_content.return_value = [b'abc']
-    mock_get.return_value = response
-    mock_subprocess.return_value = None
+        mock_ytdlp.return_value = {
+            'id': '7675967406614809865',
+            'title': 'title',
+            'duration': 10,
+            'thumbnail': 'https://example.com/cover.jpg',
+            'ext': 'mp4',
+            'url': 'https://example.com/video.mp4',
+            'http_headers': {'User-Agent': 'ua'},
+        }
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.iter_content.return_value = [b'abc']
 
-    tmpdir = '/tmp'
-    media_path = os.path.join(tmpdir, '7675967406614809865.mp4')
+        with patch('app.downloaders.douyin_downloader.requests.get') as mock_get, patch(
+            'app.downloaders.douyin_downloader.subprocess.run'
+        ) as mock_subprocess:
+            mock_get.return_value = response
+            mock_subprocess.return_value = None
 
-    def fake_ffmpeg(cmd, check, stdout, stderr):
-        with open(cmd[-1], 'wb') as f:
-            f.write(b'mp3')
-        return None
+            tmpdir = self.tmpdir
+            media_path = os.path.join(tmpdir, '7675967406614809865.mp4')
 
-    mock_subprocess.side_effect = fake_ffmpeg
+            def fake_ffmpeg(cmd, check, stdout, stderr):
+                with open(cmd[-1], 'wb') as f:
+                    f.write(b'mp3')
+                return None
 
-    downloader = DouyinDownloader()
-    result = downloader.download('https://www.douyin.com/video/7675967406614809865', output_dir=tmpdir)
+            mock_subprocess.side_effect = fake_ffmpeg
 
-    assert result.video_id == '7675967406614809865'
-    assert result.file_path.endswith('7675967406614809865.mp3')
-    assert os.path.exists(media_path)
-    mock_get.assert_called_once_with('https://example.com/video.mp4', headers={'User-Agent': 'ua'}, stream=True)
+            downloader = DouyinDownloader()
+            result = downloader.download('https://www.douyin.com/video/7675967406614809865', output_dir=tmpdir)
+
+        assert result.video_id == '7675967406614809865'
+        assert result.file_path.endswith('7675967406614809865.mp3')
+        assert os.path.exists(media_path)
+        mock_get.assert_called_once_with('https://example.com/video.mp4', headers={'User-Agent': 'ua'}, stream=True)
 
 
 def test_extract_video_id_accepts_modal_id_share_link():

@@ -210,6 +210,18 @@ export const get_task_status = async (task_id: string) => {
   }
 }
 
+export interface FixNoteTitlesResult {
+  total_checked: number
+  fixed_count: number
+  local_fixed: Array<{ task_id: string, title: string }>
+  online_fixed: Array<{ task_id: string, title: string }>
+  failed: Array<{ task_id: string, reason?: string }>
+}
+
+export const fixNoteTitles = async (fetchOnline = false) => {
+  return await request.post('/fix_note_titles', { fetch_online: fetchOnline }) as FixNoteTitlesResult
+}
+
 export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean }) => {
   return await request.get('/history', { params })
 }

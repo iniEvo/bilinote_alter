@@ -1,4 +1,0 @@
-{
-  "status": "FAILED",
-  "message": "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and outgoing traffic has been disabled. To enable repo look-ups and downloads online, pass 'local_files_only=False' as input."
-}

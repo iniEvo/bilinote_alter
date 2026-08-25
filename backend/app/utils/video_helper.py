@@ -50,11 +50,9 @@ def save_cover_to_static(local_cover_path: str, subfolder: Optional[str] = "cove
     :param subfolder: 子目录，默认是 cover，可以自定义
     :return: 前端访问路径，例如 /static/cover/xxx.jpg
     """
-    # 项目根目录
-    project_root = os.getcwd()
-
-    # static目录
-    static_dir = os.path.join(project_root, "static")
+    # static 目录：锚定到后端目录（main.py 所在目录），与启动 CWD 无关
+    from app.utils.path_helper import resolve_app_path
+    static_dir = resolve_app_path("static")
 
     # 确定目标子目录
     target_dir = os.path.join(static_dir, subfolder or "cover")
