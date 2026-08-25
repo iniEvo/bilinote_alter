@@ -1,0 +1,2 @@
+- 本项目本地启动时，后端 Python 环境当前有效路径是 `backend/.venv313/bin/python`；启动脚本已做多级回退，不应再假设根目录 `.venv` 一定存在。
+- 在 WorkBuddy 非交互后台执行里，`启动BiliNote.command` 只适合做就绪检查，不适合保活前后端；稳定拉起服务时应分别后台运行后端 `backend/.venv313/bin/python backend/main.py`（附带 `FFMPEG_BIN_PATH=/Users/jiuyue/.local/bin`、`HF_ENDPOINT=https://hf-mirror.com`、`WHISPER_MODEL_SIZE=tiny`）和前端 `cd BillNote_frontend && pnpm dev --host 0.0.0.0`。

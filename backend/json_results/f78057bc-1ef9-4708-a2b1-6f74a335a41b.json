@@ -1,0 +1,378 @@
+{
+  "markdown": "> 来源链接：https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6\n\n# 拒绝碎片化信息！这个开源全球情报大屏，把500个信源做成了3D可视化简报\n\n## 目录\n- [## 项目定位 *Content-[00:00]](#项目定位-content-0000)\n- [## 核心功能 *Content-[00:04]](#核心功能-content-0004)\n- [## 可视化与信息图层 *Content-[00:10]](#可视化与信息图层-content-0010)\n- [## 数据来源与适用场景 *Content-[00:17]](#数据来源与适用场景-content-0017)\n- [## 使用价值与关键结论 *Content-[00:18]](#使用价值与关键结论-content-0018)\n- [## AI 总结](#ai-总结)\n\n## 项目定位 *Content-[00:00]\n- 这是一个面向“全球情报监控”的实时仪表盘（real-time global intelligence dashboard）。\n- 视频将其定义为一个“宝藏神器”，强调它适合解决碎片化信息获取的问题。\n- 核心思路是：将分散在不同网站、不同领域的信息源统一汇总，用更直观的方式进行浏览和研判。\n\n## 核心功能 *Content-[00:04]\n- 项目已在 GitHub 获得约 `89k stars`，说明其在开源社区中关注度很高。\n- 它能够把约 `500` 家信息源进行整合，并划分为 `15` 个分类。\n- 在信息组织方式上，项目会将这些内容进一步整理成 `AI 简报`，降低用户自行筛选、归纳信息的成本。\n- 相比手动访问多个新闻站、研究站、监测站，这种统一聚合方式更适合高频追踪与持续观察。\n\n### 关键信息整理\n- 信息源规模：约 `500` 家\n- 分类数量：约 `15` 类\n- 社区热度：GitHub `89k stars`\n- 输出形式：`AI Brief / AI 简报`\n\n## 可视化与信息图层 *Content-[00:10]\n- 该工具不仅是信息聚合器，还提供强可视化能力。\n- 视频提到它支持：\n  - `3D 地球`\n  - `Web 地图 / 网格地图`（原转录为“web格尔地图”，结合语义更可能指 Web 地图类可视化）\n- 它可以把多个关键领域的信息叠加到同一个可视化界面中，形成更强的态势感知能力。\n\n### 可叠加的信息主题\n- 地缘（Geopolitics）\n- 金融（Finance）\n- 能源（Energy）\n- 航空（Aviation）\n- 基础设施（Infrastructure）\n\n### 这类可视化的意义\n- 把原本分散的资讯转换为空间化、图层化的信息界面。\n- 有助于观察不同领域事件之间的关联，而不是孤立看待单条新闻。\n- 更适合做宏观监控、区域比较、热点追踪和趋势判断。\n\n## 数据来源与适用场景 *Content-[00:17]\n- 用户还可以从“上百个地方”找到数据源，说明该项目在数据接入和来源覆盖上较广。\n- 这意味着它不仅适合被动阅读简报，也适合主动扩展自己的监控面板。\n- 从教程使用角度看，使用者可以重点关注以下几个操作方向：\n  - 先按分类浏览已有信息源\n  - 再根据研究主题筛选重点区域或重点行业\n  - 借助地图视图观察事件分布\n  - 结合 AI 简报快速获取摘要\n  - 根据需要继续追溯原始数据源\n\n### 适合的人群\n- 想做全球信息监控的人\n- 做行业研究、地缘研究的人\n- 需要进行态势感知（situational awareness）的人\n- 关注国际金融、能源、航空、基础设施动态的用户\n- 希望用开源工具搭建情报工作流的研究者或分析者\n\n## 使用价值与关键结论 *Content-[00:18]\n- 视频明确指出，这个工具非常适合“全球信息监控或者研究”。\n- 它的最大价值不只是“信息多”，而是把大量信源进行了结构化、分类化和可视化整合。\n- “态势感知界面就很 nice” 说明其界面体验和信息呈现方式是核心亮点之一。\n- 与传统的信息浏览方式相比，它更像一个面向研究和监测任务的“情报操作台”。\n\n### 关键结论\n- 如果目标是减少信息碎片化，这类聚合式开源项目非常有价值。\n- 如果需要跨领域观察全球事件，地图可视化和图层叠加能力是重要优势。\n- 如果希望快速掌握大量动态，`AI 简报` 比逐条阅读原始信息更高效。\n- 如果要做长期监控，这种“多源 + 分类 + 地图 + 摘要”的组合非常适合作为基础工作流。\n\n### 可直接提炼的使用步骤\n- 第一步：进入项目，先查看其 `15` 个分类结构。\n- 第二步：从 `500` 家信息源中定位与你研究主题最相关的类别。\n- 第三步：打开 `3D 地球` 或 Web 地图视图，观察信息在空间上的分布。\n- 第四步：叠加地缘、金融、能源、航空、基础设施等图层进行联动分析。\n- 第五步：阅读 `AI 简报`，快速理解当天或当前阶段的重要动态。\n- 第六步：如需深入，再回溯到具体数据源做进一步验证和研究。\n\n## AI 总结\n这是一个高热度的开源全球情报可视化项目，核心优势在于把约 `500` 家信息源按 `15` 个类别整合，并通过 `AI 简报`、`3D 地球` 与地图图层展示，帮助用户更高效地完成全球信息监控、研究分析和态势感知。它尤其适合需要跨领域、跨地区持续追踪信息的人使用。",
+  "transcript": {
+    "language": "ai-zh",
+    "full_text": "这是一个实时全球情报仪表盘 每天挖掘一个宝藏神器 第22期 今天挖掘的是在GITHUB已收获89k star里面 把500家信息源15个分类整理成AI简报 还能用3D地球和web格尔地图 把地缘金融能源 航空基础设施这些信息叠到一起 你还可以从百个地方找到数据源 适合想做全球信息监控或者研究 态势感知界面就很nice",
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 1.96,
+        "text": "这是一个实时全球情报仪表盘"
+      },
+      {
+        "start": 1.96,
+        "end": 3.52,
+        "text": "每天挖掘一个宝藏神器"
+      },
+      {
+        "start": 3.52,
+        "end": 4.2,
+        "text": "第22期"
+      },
+      {
+        "start": 4.2,
+        "end": 7.91,
+        "text": "今天挖掘的是在GITHUB已收获89k star里面"
+      },
+      {
+        "start": 7.91,
+        "end": 10.87,
+        "text": "把500家信息源15个分类整理成AI简报"
+      },
+      {
+        "start": 10.87,
+        "end": 13.44,
+        "text": "还能用3D地球和web格尔地图"
+      },
+      {
+        "start": 13.44,
+        "end": 15.04,
+        "text": "把地缘金融能源"
+      },
+      {
+        "start": 15.04,
+        "end": 17.2,
+        "text": "航空基础设施这些信息叠到一起"
+      },
+      {
+        "start": 17.2,
+        "end": 18.9,
+        "text": "你还可以从百个地方找到数据源"
+      },
+      {
+        "start": 18.9,
+        "end": 21.46,
+        "text": "适合想做全球信息监控或者研究"
+      },
+      {
+        "start": 21.46,
+        "end": 23.2,
+        "text": "态势感知界面就很nice"
+      }
+    ],
+    "raw": null
+  },
+  "audio_meta": {
+    "file_path": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1iKgc6WEKw.mp3",
+    "title": "拒绝碎片化信息！这个开源全球情报大屏，把500个信源做成了3D可视化简报",
+    "duration": 23.22,
+    "cover_url": "http://i0.hdslb.com/bfs/archive/7d8c40ce42a1066102ae4a38bd6a8e7481b278a1.jpg",
+    "platform": "bilibili",
+    "video_id": "BV1iKgc6WEKw",
+    "raw_info": {
+      "uploader": "bili_32390937472",
+      "uploader_id": "3707036833417294",
+      "like_count": 11,
+      "tags": [
+        "信息差",
+        "AI 工具",
+        "生产力搭子",
+        "资源分享",
+        "网站推荐",
+        "实用网站",
+        "开源项目",
+        "效率神器",
+        "硬核科技",
+        "AI工具"
+      ],
+      "thumbnail": "http://i0.hdslb.com/bfs/archive/7d8c40ce42a1066102ae4a38bd6a8e7481b278a1.jpg",
+      "description": "每天面对海量的碎片化新闻不仅耗费精力还很难抓到重点，其实有一种更降维的信息获取方式，今天分享的这个开源全球情报大屏直接把五百多家核心信息源涵盖十五个分类全部打包装进了一个三维可视化的系统里，它不仅能自动把海量资讯提炼成AI智能简报，更硬核的是可以通过3D地球和WebGL地图，将地缘态势、金融市场波动、能源分布、航空动态以及基础设施等复杂数据以多维图层的形式叠加在一起进行立体呈现，让普通人也能拥有类似指挥中心般的宏观视角去俯瞰世界局势变化，无论是用来做深度学术研究、行业态势感知还是日常提升个人认知，都能大幅提高信息筛选与处理的效率，彻底告别四处翻找新闻的焦虑。",
+      "timestamp": 1786670147,
+      "view_count": 425,
+      "comment_count": 0,
+      "id": "BV1iKgc6WEKw",
+      "_old_archive_ids": [
+        "bilibili 117091210369081_part1"
+      ],
+      "title": "拒绝碎片化信息！这个开源全球情报大屏，把500个信源做成了3D可视化简报",
+      "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-us,en;q=0.5",
+        "Sec-Fetch-Mode": "navigate",
+        "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+      },
+      "formats": [
+        {
+          "url": "https://upos-sz-estgcos.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30216.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&og=hw&oi=1786304290&nbs=1&platform=pc&trid=64b4a95a237a41e8998c4d159b49483u&deadline=1787460460&uipk=5&mid=28156057&gen=playurlv3&os=estgcos&upsig=c6565736d1e6a8ffb2bcace4c7e613d1&uparams=e,og,oi,nbs,platform,trid,deadline,uipk,mid,gen,os&bvc=vod&nettype=0&bw=67404&lrs=0&dl=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 66.731,
+          "filesize": null,
+          "format_id": "30216",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 66.731,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 193686,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30216 - audio only"
+        },
+        {
+          "url": "https://upos-sz-mirror08c.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30232.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&mid=28156057&platform=pc&trid=64b4a95a237a41e8998c4d159b49483u&oi=1786304290&deadline=1787460460&uipk=5&nbs=1&gen=playurlv3&os=08cbv&og=hw&upsig=d592b0462e580c2a6f5f6b756ac64a01&uparams=e,mid,platform,trid,oi,deadline,uipk,nbs,gen,os,og&bvc=vod&nettype=0&bw=97619&lrs=0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&f=u_0_0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 96.66,
+          "filesize": null,
+          "format_id": "30232",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 96.66,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 280555,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30232 - audio only"
+        },
+        {
+          "url": "https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787460460&uipk=5&mid=28156057&gen=playurlv3&os=hwbv&nbs=1&trid=64b4a95a237a41e8998c4d159b49483u&og=hw&platform=pc&oi=1786304290&upsig=1dc1e18ce355651ae4c8e9e701099c72&uparams=e,deadline,uipk,mid,gen,os,nbs,trid,og,platform,oi&bvc=vod&nettype=0&bw=173121&lrs=0&dl=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 171.446,
+          "filesize": null,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 171.446,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 497622,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30280 - audio only"
+        },
+        {
+          "url": "https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30016.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&gen=playurlv3&uipk=5&mid=28156057&os=cosbv&og=hw&deadline=1787460460&nbs=1&platform=pc&trid=64b4a95a237a41e8998c4d159b49483u&oi=1786304290&upsig=1e1d9fc86b2abe2df11ab35d63e30fc0&uparams=e,gen,uipk,mid,os,og,deadline,nbs,platform,trid,oi&bvc=vod&nettype=0&bw=209788&lrs=0&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 480,
+          "height": 360,
+          "vcodec": "avc1.64001E",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 207.945,
+          "filesize": null,
+          "quality": 16,
+          "format_id": "30016",
+          "format": "360P 流畅",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 207.945,
+          "resolution": "480x360",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 603560,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-estgcos.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30032.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&nbs=1&platform=pc&deadline=1787460460&uipk=5&gen=playurlv3&os=estgcos&trid=64b4a95a237a41e8998c4d159b49483u&oi=1786304290&mid=28156057&og=hw&upsig=c2ebd1d08f0c816261f8859a15e2f7eb&uparams=e,nbs,platform,deadline,uipk,gen,os,trid,oi,mid,og&bvc=vod&nettype=0&bw=299363&lrs=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 640,
+          "height": 480,
+          "vcodec": "avc1.64001F",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 296.747,
+          "filesize": null,
+          "quality": 32,
+          "format_id": "30032",
+          "format": "480P 标清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 296.747,
+          "resolution": "640x480",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 861308,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-estgcos.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30064.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&os=estgcos&og=cos&platform=pc&oi=1786304290&deadline=1787460460&uipk=5&mid=28156057&gen=playurlv3&nbs=1&trid=64b4a95a237a41e8998c4d159b49483u&upsig=b66bc73bb7a8fad009fcf377a9fec52d&uparams=e,os,og,platform,oi,deadline,uipk,mid,gen,nbs,trid&bvc=vod&nettype=0&bw=518819&lrs=0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&f=u_0_0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 960,
+          "height": 720,
+          "vcodec": "avc1.640020",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 514.312,
+          "filesize": null,
+          "quality": 64,
+          "format_id": "30064",
+          "format": "720P 准高清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 514.312,
+          "resolution": "960x720",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 1492790,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-estgoss.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30080.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787460460&mid=28156057&nbs=1&platform=pc&trid=64b4a95a237a41e8998c4d159b49483u&oi=1786304290&uipk=5&gen=playurlv3&os=estgoss&og=ali&upsig=d8f66e3e357d4ac207b933f6ba51c182&uparams=e,deadline,mid,nbs,platform,trid,oi,uipk,gen,os,og&bvc=vod&nettype=0&bw=941838&lrs=0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&f=u_0_0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 1440,
+          "height": 1080,
+          "vcodec": "avc1.640032",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 933.682,
+          "filesize": null,
+          "quality": 80,
+          "format_id": "30080",
+          "format": "1080P 高清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 933.682,
+          "resolution": "1440x1080",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 2710012,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        }
+      ],
+      "duration": 23.22,
+      "chapters": null,
+      "subtitles": {},
+      "webpage_url": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "original_url": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "webpage_url_basename": "BV1iKgc6WEKw",
+      "webpage_url_domain": "bilibili.com",
+      "extractor": "BiliBili",
+      "extractor_key": "BiliBili",
+      "playlist": null,
+      "playlist_index": null,
+      "thumbnails": [
+        {
+          "url": "http://i0.hdslb.com/bfs/archive/7d8c40ce42a1066102ae4a38bd6a8e7481b278a1.jpg",
+          "id": "0"
+        }
+      ],
+      "display_id": "BV1iKgc6WEKw",
+      "fulltitle": "拒绝碎片化信息！这个开源全球情报大屏，把500个信源做成了3D可视化简报",
+      "duration_string": "23",
+      "upload_date": "20260814",
+      "release_year": null,
+      "requested_subtitles": null,
+      "_has_drm": null,
+      "epoch": 1787453261,
+      "requested_downloads": [
+        {
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4556.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1iKgc6WEKw/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "url": "https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787460460&uipk=5&mid=28156057&gen=playurlv3&os=hwbv&nbs=1&trid=64b4a95a237a41e8998c4d159b49483u&og=hw&platform=pc&oi=1786304290&upsig=1dc1e18ce355651ae4c8e9e701099c72&uparams=e,deadline,uipk,mid,gen,os,nbs,trid,og,platform,oi&bvc=vod&nettype=0&bw=173121&lrs=0&dl=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp3",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 171.446,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 171.446,
+          "resolution": "audio only",
+          "filesize_approx": 497622,
+          "format": "30280 - audio only",
+          "_filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1iKgc6WEKw.m4a",
+          "filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1iKgc6WEKw.m4a",
+          "__postprocessors": [],
+          "__real_download": false,
+          "__finaldir": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data",
+          "filepath": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1iKgc6WEKw.mp3",
+          "__write_download_archive": true
+        }
+      ],
+      "url": "https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/22/53/40844265322/40844265322-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787460460&uipk=5&mid=28156057&gen=playurlv3&os=hwbv&nbs=1&trid=64b4a95a237a41e8998c4d159b49483u&og=hw&platform=pc&oi=1786304290&upsig=1dc1e18ce355651ae4c8e9e701099c72&uparams=e,deadline,uipk,mid,gen,os,nbs,trid,og,platform,oi&bvc=vod&nettype=0&bw=173121&lrs=0&dl=0&f=u_0_0&qn_dyeid=0c001f2d59027164009d22626a8a5f4c&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+      "ext": "m4a",
+      "acodec": "mp4a.40.2",
+      "vcodec": "none",
+      "tbr": 171.446,
+      "filesize": null,
+      "format_id": "30280",
+      "protocol": "https",
+      "audio_ext": "m4a",
+      "video_ext": "none",
+      "vbr": 0,
+      "abr": 171.446,
+      "resolution": "audio only",
+      "aspect_ratio": null,
+      "filesize_approx": 497622,
+      "format": "30280 - audio only"
+    },
+    "video_path": null
+  }
+}
