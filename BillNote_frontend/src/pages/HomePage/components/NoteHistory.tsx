@@ -171,7 +171,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
             size="sm"
             variant="outline"
             className="h-8 rounded-xl px-2.5"
-            disabled={isLoadingMore || (currentPage >= totalPages && !historyHasMore)}
+            disabled={isLoadingMore || (currentPage >= totalPages && !historyHasMore) || totalPages <= 1}
             onClick={async () => {
               if (currentPage < totalPages) {
                 setPage(value => Math.min(totalPages, value + 1))

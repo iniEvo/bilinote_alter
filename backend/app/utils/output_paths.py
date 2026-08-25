@@ -3,8 +3,21 @@ import re
 from pathlib import Path
 from typing import Optional
 
-NOTE_OUTPUT_DIR = Path(os.getenv('NOTE_OUTPUT_DIR', 'backend/note_results'))
-JSON_OUTPUT_DIR = Path(os.getenv('JSON_OUTPUT_DIR', 'backend/json_results'))
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_output_dir(env_name: str, default_relative: str) -> Path:
+    raw = os.getenv(env_name)
+    if raw:
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            path = (_WORKSPACE_ROOT / path).resolve()
+        return path
+    return (_WORKSPACE_ROOT / default_relative).resolve()
+
+
+NOTE_OUTPUT_DIR = _resolve_output_dir('NOTE_OUTPUT_DIR', 'backend/note_results')
+JSON_OUTPUT_DIR = _resolve_output_dir('JSON_OUTPUT_DIR', 'backend/json_results')
 
 NOTE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 JSON_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

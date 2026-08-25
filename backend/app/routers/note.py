@@ -982,10 +982,12 @@ def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: Ba
 @router.get('/history')
 def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True):
     items = []
-    fetch_limit = max(limit, 1)
+    target_offset = max(offset, 0)
+    target_limit = max(limit, 1)
+    fetch_limit = max(target_limit, 20)
     fetch_offset = 0
 
-    while True:
+    while len(items) < target_offset + target_limit:
         rows = list_recent_tasks(fetch_limit, offset=fetch_offset)
         if not rows:
             break
@@ -1006,7 +1008,7 @@ def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True)
         )
     )
 
-    visible_items = items[max(offset, 0): max(offset, 0) + max(limit, 1)]
+    visible_items = items[target_offset: target_offset + target_limit]
     return R.success(visible_items)
 
 
