@@ -47,10 +47,9 @@ class MLXWhisperTranscriber(Transcriber):
         if platform.system() != "Darwin":
             raise RuntimeError("MLX Whisper 仅支持 Apple 平台")
 
-        # 检查环境变量
-        if os.environ.get("TRANSCRIBER_TYPE") != "mlx-whisper":
-            raise RuntimeError("必须设置环境变量 TRANSCRIBER_TYPE=mlx-whisper 才能使用 MLX Whisper")
-
+        # 不再检查 TRANSCRIBER_TYPE 环境变量：转写器选择已由 config/transcriber.json
+        # （前端「音频转写配置」页）与 transcriber_provider 决定，避免前端切到 mlx-whisper
+        # 后仍被残留的环境变量硬校验拦下（原报错：必须设置环境变量 TRANSCRIBER_TYPE=mlx-whisper）
         self.model_size = model_size
         self.model_name = resolve_mlx_repo_id(model_size)
         self.model_path = None

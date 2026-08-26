@@ -30,6 +30,7 @@ from app.enmus.note_enums import DownloadQuality
 from app.enmus.task_status_enums import TaskStatus
 from app.exceptions.note import NoteError
 from app.services.note import NoteGenerator, logger
+from app.services.batch_control_store import BatchControlStore
 from app.services.task_serial_executor import task_serial_executor
 from app.utils.output_paths import (
     audio_json_path,
@@ -51,7 +52,7 @@ DOUYIN_CANONICAL_BASE = 'https://www.douyin.com/video/'
 router = APIRouter()
 _video_task_lock = Lock()
 _inflight_video_tasks: dict[tuple[str, str], str] = {}
-_batch_task_controls: dict[str, str] = {}
+_batch_controls = BatchControlStore()
 _STALE_PENDING_GRACE = timedelta(seconds=30)
 
 
@@ -102,12 +103,16 @@ class BatchActionRequest(BaseModel):
 class BatchRetryFailedRequest(BaseModel):
     batch_id: str
     task_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    model_name: Optional[str] = None
 
 
 class BatchResumeRequest(BaseModel):
     batch_id: str
     include_pending: Optional[bool] = False
     limit: Optional[int] = None
+    provider_id: Optional[str] = None
+    model_name: Optional[str] = None
 
 
 class FixNoteTitlesRequest(BaseModel):
@@ -451,12 +456,45 @@ def _check_duplicate_response(data: VideoRequest):
     )
 
 
-def _build_retry_request(item: dict, row) -> tuple[Optional[VideoRequest], Optional[str], Optional[str]]:
+def _validate_model_override(provider_id: Optional[str], model_name: Optional[str]) -> Optional[str]:
+    """校验批次重试/续跑的模型覆盖参数；返回错误信息，None 表示通过。
+
+    覆盖必须成对出现，且 (provider_id, model_name) 必须是已登记的可用组合，
+    否则重试只会再次失败。"""
+    if not provider_id and not model_name:
+        return None
+    if bool(provider_id) != bool(model_name):
+        return 'provider_id 与 model_name 必须同时提供才能覆盖模型'
+    from app.db.model_dao import get_model_by_provider_and_name
+    from app.services.provider import ProviderService
+
+    if not ProviderService.get_provider_by_id(provider_id):
+        return f'供应商不存在: {provider_id}'
+    if not get_model_by_provider_and_name(provider_id, model_name):
+        return f'该供应商下不存在模型: {model_name}'
+    return None
+
+
+def _build_retry_request(
+    item: dict,
+    row,
+    *,
+    provider_id: Optional[str] = None,
+    model_name: Optional[str] = None,
+) -> tuple[Optional[VideoRequest], Optional[str], Optional[str]]:
     payload = dict(item.get('request_payload') or {})
     original_video_url = payload.get('video_url')
     video_url = original_video_url if original_video_url is not None else item.get('source_url')
     payload.setdefault('platform', item.get('platform') or getattr(row, 'platform', None))
-    payload.setdefault('task_id', row.task_id)
+    # 重试/续跑必须复用数据库现有行。request_payload 里可能残留 task_id=null，
+    # setdefault 无法覆盖 null（key 已存在），会让 VideoRequest.task_id 变成 None，
+    # 从而在 _enqueue_note_task 里被当成新任务、插入新行。此处强制用 row.task_id。
+    payload['task_id'] = row.task_id
+    # 显式指定的模型覆盖优先级最高：用于旧配置失效（如供应商欠费）时切换重跑。
+    if provider_id:
+        payload['provider_id'] = provider_id
+    if model_name:
+        payload['model_name'] = model_name
 
     prefetched_transcript = payload.get('prefetched_transcript')
     video_id = extract_video_id(video_url or '', payload.get('platform')) if video_url else None
@@ -659,10 +697,10 @@ def run_note_task(
 
     row = get_task_record(task_id)
     batch_id = getattr(row, 'batch_id', None)
-    if batch_id and _batch_task_controls.get(batch_id) == 'CANCELED':
+    if batch_id and _batch_controls.get(batch_id) == 'CANCELED':
         NoteGenerator()._update_status(task_id, TaskStatus.CANCELED, message='批次任务已取消')
         return
-    if batch_id and _batch_task_controls.get(batch_id) == 'PAUSED':
+    if batch_id and _batch_controls.get(batch_id) == 'PAUSED':
         NoteGenerator()._update_status(task_id, TaskStatus.PAUSED, message='批次任务已暂停')
         return
 
@@ -704,7 +742,7 @@ def delete_task(data: DeleteTaskRequest):
 def detach_batch_tasks(data: BatchActionRequest):
     try:
         count = clear_batch_by_id(data.batch_id)
-        _batch_task_controls.pop(data.batch_id, None)
+        _batch_controls.pop(data.batch_id)
         if count <= 0:
             return R.error(msg='批次不存在')
         return R.success(data={'batch_id': data.batch_id, 'count': count}, msg='批次任务已移出批次视图')
@@ -839,19 +877,22 @@ def get_batch_status(batch_id: str):
     }
     summary['pending'] = summary['total'] - summary['success'] - summary['failed'] - summary['paused'] - summary['canceled']
     batch_name = next((item.get('batch_name') for item in items if item.get('batch_name')), None)
-    control_state = _batch_task_controls.get(batch_id)
+    control_state = _batch_controls.get(batch_id)
     return R.success({'batch_id': batch_id, 'batch_name': batch_name, 'control_state': control_state, 'summary': summary, 'items': items})
 
 
 @router.post('/batch_pause')
 def pause_batch(data: BatchActionRequest):
-    _batch_task_controls[data.batch_id] = 'PAUSED'
+    _batch_controls.set(data.batch_id, 'PAUSED')
     return R.success({'batch_id': data.batch_id, 'control_state': 'PAUSED'})
 
 
 @router.post('/batch_resume')
 def resume_batch(data: BatchResumeRequest, background_tasks: BackgroundTasks):
-    _batch_task_controls[data.batch_id] = 'RUNNING'
+    override_error = _validate_model_override(data.provider_id, data.model_name)
+    if override_error:
+        return R.error(msg=override_error, code=400)
+    _batch_controls.set(data.batch_id, 'RUNNING')
     rows = list_tasks_by_batch(data.batch_id)
     resumed_items = []
     skipped_items = []
@@ -864,7 +905,12 @@ def resume_batch(data: BatchResumeRequest, background_tasks: BackgroundTasks):
         item = _build_task_item(row.task_id, row=row)
         if item['status'] not in target_statuses:
             continue
-        resume_request, video_url, error_reason = _build_retry_request(item, row)
+        resume_request, video_url, error_reason = _build_retry_request(
+            item,
+            row,
+            provider_id=data.provider_id,
+            model_name=data.model_name,
+        )
         if not resume_request:
             skipped_items.append({
                 'task_id': row.task_id,
@@ -911,7 +957,7 @@ def resume_batch(data: BatchResumeRequest, background_tasks: BackgroundTasks):
 
 @router.post('/batch_cancel')
 def cancel_batch(data: BatchActionRequest):
-    _batch_task_controls[data.batch_id] = 'CANCELED'
+    _batch_controls.set(data.batch_id, 'CANCELED')
     rows = list_tasks_by_batch(data.batch_id)
     for row in rows:
         status, _ = _load_task_status(row.task_id)
@@ -940,6 +986,9 @@ def clear_failed_batch_tasks(data: BatchActionRequest):
 
 @router.post('/batch_retry_failed')
 def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: BackgroundTasks):
+    override_error = _validate_model_override(data.provider_id, data.model_name)
+    if override_error:
+        return R.error(msg=override_error, code=400)
     rows = list_tasks_by_batch(data.batch_id)
     retried_items = []
     skipped_items = []
@@ -950,7 +999,12 @@ def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: Ba
         item = _build_task_item(row.task_id, row=row)
         if item['status'] != TaskStatus.FAILED.value:
             continue
-        retry_request, video_url, error_reason = _build_retry_request(item, row)
+        retry_request, video_url, error_reason = _build_retry_request(
+            item,
+            row,
+            provider_id=data.provider_id,
+            model_name=data.model_name,
+        )
         if not retry_request:
             skipped_items.append({
                 'task_id': row.task_id,
@@ -977,7 +1031,7 @@ def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: Ba
                 'reason': (payload_data.get('data') or {}).get('reason') or payload_data.get('msg'),
             })
     if retried_items:
-        _batch_task_controls[data.batch_id] = 'RUNNING'
+        _batch_controls.set(data.batch_id, 'RUNNING')
     return R.success({
         'batch_id': data.batch_id,
         'retried': retried_items,

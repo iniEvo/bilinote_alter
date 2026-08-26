@@ -19,6 +19,12 @@ import { del, get, set } from 'idb-keyval'
 
 export const HISTORY_PAGE_SIZE = 20
 
+/** 批次重试/续跑时的模型覆盖：同时提供 provider 与 model，缺省则沿用任务原配置 */
+export interface ModelOverride {
+  provider_id: string
+  model_name: string
+}
+
 export type TaskStatus =
   | 'PENDING'
   | 'PAUSED'
@@ -138,10 +144,10 @@ interface TaskStore {
   removeTask: (id: string) => Promise<void>
   removeBatchGroup: (batchId: string) => Promise<void>
   pauseBatchGroup: (batchId: string) => Promise<void>
-  resumeBatchGroup: (batchId: string) => Promise<void>
+  resumeBatchGroup: (batchId: string, override?: ModelOverride) => Promise<void>
   cancelBatchGroup: (batchId: string) => Promise<void>
   clearFailedBatchTasks: (batchId: string) => Promise<void>
-  retryFailedBatchTasks: (batchId: string) => Promise<void>
+  retryFailedBatchTasks: (batchId: string, override?: ModelOverride) => Promise<void>
   clearTasks: () => void
   setHasHydrated: (hydrated: boolean) => void
   setCurrentTask: (taskId: string | null) => void
@@ -777,8 +783,8 @@ export const useTaskStore = create<TaskStore>()(
         toast.success('批次已暂停')
       },
 
-      resumeBatchGroup: async batchId => {
-        const response = await batchResume(batchId)
+      resumeBatchGroup: async (batchId, override) => {
+        const response = await batchResume(batchId, override)
         set(state => {
           const resumedIds = new Set((response.resumed || []).map(item => item.task_id))
           const tasks = state.tasks.map(task =>
@@ -788,7 +794,7 @@ export const useTaskStore = create<TaskStore>()(
           )
           return {
             tasks,
-            batchGroups: buildBatchGroups(tasks).map(group =>
+            batchGroups: buildBatchGroups(tasks, state.batchGroups).map(group =>
               group.id === batchId ? { ...group, controlState: 'RUNNING' } : group,
             ),
           }
@@ -806,7 +812,7 @@ export const useTaskStore = create<TaskStore>()(
           )
           return {
             tasks,
-            batchGroups: buildBatchGroups(tasks).map(group =>
+            batchGroups: buildBatchGroups(tasks, state.batchGroups).map(group =>
               group.id === batchId ? { ...group, controlState: 'CANCELED' } : group,
             ),
           }
@@ -852,8 +858,8 @@ export const useTaskStore = create<TaskStore>()(
         toast.success(`已清理 ${response.count} 个失败任务`)
       },
 
-      retryFailedBatchTasks: async batchId => {
-        const response = await batchRetryFailed(batchId)
+      retryFailedBatchTasks: async (batchId, override) => {
+        const response = await batchRetryFailed(batchId, undefined, override)
         if (!response.count) {
           toast('当前没有可重试的失败任务')
           return
@@ -868,7 +874,7 @@ export const useTaskStore = create<TaskStore>()(
           )
           return {
             tasks,
-            batchGroups: buildBatchGroups(tasks).map(group =>
+            batchGroups: buildBatchGroups(tasks, state.batchGroups).map(group =>
               group.id === batchId ? { ...group, controlState: 'RUNNING' } : group,
             ),
           }

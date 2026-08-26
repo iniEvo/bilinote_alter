@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils.ts'
 import { createHistoryTask, HISTORY_PAGE_SIZE, useTaskStore, type BatchControlState, type Task } from '@/store/taskStore'
+import { useModelStore } from '@/store/modelStore'
 import TaskHistoryCard from '@/pages/HomePage/components/TaskHistoryCard.tsx'
 
 const FILTERS = [
@@ -76,6 +77,13 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
   const [isDeletingBatch, setIsDeletingBatch] = useState(false)
   const [isDeletingTask, setIsDeletingTask] = useState(false)
   const [busyBatchAction, setBusyBatchAction] = useState<string | null>(null)
+  // 「重试失败项」的模型选择弹窗：targetBatchId 非空时打开
+  const [retryDialogBatchId, setRetryDialogBatchId] = useState<string | null>(null)
+  const [retryUseCurrentModel, setRetryUseCurrentModel] = useState(false)
+  const modelList = useModelStore(state => state.modelList)
+  const loadEnabledModels = useModelStore(state => state.loadEnabledModels)
+  /** 「用当前默认模型重试」使用的目标：当前启用列表的第一个模型 */
+  const defaultOverrideModel = modelList[0] || null
   const [groupPage, setGroupPage] = useState(1)
   const [taskPages, setTaskPages] = useState<Record<string, number>>({})
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -233,6 +241,85 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
             >
               {isDeletingBatch && <Loader2 className="h-4 w-4 animate-spin" />}
               {isDeletingBatch ? '移出中…' : '确认移出'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!retryDialogBatchId}
+        onOpenChange={(open) => {
+          if (!open && !busyBatchAction)
+            setRetryDialogBatchId(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重试失败项：使用哪个模型？</DialogTitle>
+            <DialogDescription>
+              失败任务默认沿用各自提交时的模型配置。若原供应商已失效（如欠费），可改用当前默认模型重跑。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {[
+              {
+                value: false,
+                title: '用原配置重试',
+                desc: '沿用每个任务提交时的供应商与模型（行为与之前一致）',
+              },
+              {
+                value: true,
+                title: `用当前默认模型重试${defaultOverrideModel ? `（${defaultOverrideModel.model_name}）` : ''}`,
+                desc: defaultOverrideModel
+                  ? '全部失败任务改用当前启用的第一个可用模型'
+                  : '当前没有可用模型，请先在设置中启用',
+              },
+            ].map(option => (
+              <button
+                key={String(option.value)}
+                type="button"
+                disabled={option.value && !defaultOverrideModel}
+                onClick={() => setRetryUseCurrentModel(option.value)}
+                className={cn(
+                  'w-full rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                  retryUseCurrentModel === option.value
+                    ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
+                    : 'border-slate-200 bg-white hover:bg-slate-50/80',
+                )}
+              >
+                <div className="text-sm font-medium text-slate-900">{option.title}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{option.desc}</div>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!!busyBatchAction}
+              onClick={() => setRetryDialogBatchId(null)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={!!busyBatchAction || (retryUseCurrentModel && !defaultOverrideModel)}
+              onClick={async () => {
+                if (!retryDialogBatchId)
+                  return
+                const override = retryUseCurrentModel && defaultOverrideModel
+                  ? { provider_id: defaultOverrideModel.provider_id, model_name: defaultOverrideModel.model_name }
+                  : undefined
+                setBusyBatchAction(retryDialogBatchId)
+                try {
+                  await retryFailedBatchTasks(retryDialogBatchId, override)
+                  setRetryDialogBatchId(null)
+                } finally {
+                  setBusyBatchAction(null)
+                }
+              }}
+            >
+              {busyBatchAction === retryDialogBatchId && <Loader2 className="h-4 w-4 animate-spin" />}
+              确认重试
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -449,14 +536,11 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                         variant="outline"
                         size="sm"
                         className="h-8 min-w-0 w-full max-w-full rounded-none border-0 px-1.5 text-[11px] shadow-none transition-colors bg-white hover:bg-slate-50 first:rounded-l-lg last:rounded-r-lg justify-center"
-                        disabled={isBusy}
-                        onClick={async () => {
-                          setBusyBatchAction(group.id)
-                          try {
-                            await retryFailedBatchTasks(group.id)
-                          } finally {
-                            setBusyBatchAction(null)
-                          }
+                        disabled={isBusy || group.failed === 0}
+                        onClick={() => {
+                          setRetryUseCurrentModel(false)
+                          setRetryDialogBatchId(group.id)
+                          loadEnabledModels()
                         }}
                       >
                         <RefreshCw className="mr-1 h-3.5 w-3.5" />

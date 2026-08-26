@@ -331,6 +331,7 @@ ffmpg*/
 # SQLite 数据库及备份
 bili_note.db
 *.db.backup*
+*.db.bak*
 *.db-wal
 *.db-shm
 

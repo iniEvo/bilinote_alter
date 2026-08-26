@@ -405,6 +405,139 @@ class TestBatchNoteApi(unittest.TestCase):
         self.assertEqual(retry_request.video_url, 'https://www.douyin.com/video/7660398439615712546')
 
     @patch('app.routers.note._enqueue_note_task')
+    def test_batch_retry_failed_reuses_task_id_when_payload_has_null_task_id(self, mock_enqueue):
+        # 历史批量首次提交会在 request_payload 里残留 task_id=null，重试时必须
+        # 用数据库行主键覆盖它，否则会被当成新任务插入新行（回归保护）。
+        batch_id = 'batch-null-task-id'
+        task_id = 'task-null-task-id'
+        video_id = '7674902822596463891'
+        pathlib.Path(self.tmpdir.name, f'{task_id}.status.json').write_text(
+            '{"status": "FAILED", "message": "boom"}',
+            encoding='utf-8',
+        )
+        mock_enqueue.return_value = note_router.R.success({'task_id': task_id, 'batch_id': batch_id})
+
+        row = SimpleNamespace(
+            task_id=task_id,
+            video_id=video_id,
+            platform='douyin',
+            batch_id=batch_id,
+            batch_name='20250101010101',
+            source_url=f'https://www.douyin.com/video/{video_id}',
+            title=None,
+            created_at=None,
+            request_payload_data={
+                'task_id': None,
+                'video_url': f'https://www.douyin.com/video/{video_id}',
+                'platform': 'douyin',
+                'quality': 'fast',
+                'model_name': 'deepseek-v4-pro',
+                'provider_id': 'provider-1',
+                'format': ['toc'],
+                'style': 'tutorial',
+                'grid_size': [2, 2],
+            },
+        )
+
+        with patch('app.routers.note.list_tasks_by_batch', return_value=[row]), patch(
+            'app.routers.note._load_task_status', return_value=('FAILED', 'boom')
+        ):
+            response = self.client.post('/api/batch_retry_failed', json={'batch_id': batch_id})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        self.assertEqual(data['count'], 1)
+        mock_enqueue.assert_called_once()
+        retry_request = mock_enqueue.call_args.args[0]
+        self.assertEqual(retry_request.task_id, task_id)
+
+    @patch('app.routers.note._enqueue_note_task')
+    def test_batch_retry_failed_with_model_override(self, mock_enqueue):
+        # 覆盖模型：重试应使用请求指定的 provider/model，而不是旧 payload 里的
+        batch_id = 'batch-override'
+        task_id = 'task-override'
+        video_id = '7674902822596463891'
+        pathlib.Path(self.tmpdir.name, f'{task_id}.status.json').write_text(
+            '{"status": "FAILED", "message": "boom"}',
+            encoding='utf-8',
+        )
+        mock_enqueue.return_value = note_router.R.success({'task_id': task_id, 'batch_id': batch_id})
+
+        row = SimpleNamespace(
+            task_id=task_id,
+            video_id=video_id,
+            platform='douyin',
+            batch_id=batch_id,
+            batch_name='20250101010101',
+            source_url=f'https://www.douyin.com/video/{video_id}',
+            title=None,
+            created_at=None,
+            request_payload_data={
+                'task_id': None,
+                'video_url': f'https://www.douyin.com/video/{video_id}',
+                'platform': 'douyin',
+                'quality': 'fast',
+                'model_name': 'old-model',
+                'provider_id': 'old-provider',
+                'format': ['toc'],
+                'style': 'tutorial',
+                'grid_size': [2, 2],
+            },
+        )
+
+        with patch('app.routers.note.list_tasks_by_batch', return_value=[row]), patch(
+            'app.routers.note._load_task_status', return_value=('FAILED', 'boom')
+        ), patch(
+            'app.services.provider.ProviderService.get_provider_by_id',
+            return_value={'id': 'new-provider', 'name': 'New'},
+        ), patch(
+            'app.db.model_dao.get_model_by_provider_and_name',
+            return_value={'id': 1, 'provider_id': 'new-provider', 'model_name': 'new-model'},
+        ):
+            response = self.client.post('/api/batch_retry_failed', json={
+                'batch_id': batch_id,
+                'provider_id': 'new-provider',
+                'model_name': 'new-model',
+            })
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        self.assertEqual(data['count'], 1)
+        retry_request = mock_enqueue.call_args.args[0]
+        self.assertEqual(retry_request.provider_id, 'new-provider')
+        self.assertEqual(retry_request.model_name, 'new-model')
+        self.assertEqual(retry_request.task_id, task_id)
+
+    def test_batch_retry_failed_rejects_partial_override(self):
+        batch_id = 'batch-partial-override'
+        response = self.client.post('/api/batch_retry_failed', json={
+            'batch_id': batch_id,
+            'provider_id': 'new-provider',
+        })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertNotEqual(body['code'], 0)
+        self.assertIn('同时提供', body['msg'])
+
+    def test_batch_retry_failed_rejects_unknown_provider_model(self):
+        with patch(
+            'app.services.provider.ProviderService.get_provider_by_id',
+            return_value={'id': 'ghost-provider', 'name': 'Ghost'},
+        ), patch(
+            'app.db.model_dao.get_model_by_provider_and_name',
+            return_value=None,
+        ):
+            response = self.client.post('/api/batch_retry_failed', json={
+                'batch_id': 'batch-unknown-override',
+                'provider_id': 'ghost-provider',
+                'model_name': 'nope-model',
+            })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertNotEqual(body['code'], 0)
+        self.assertIn('不存在', body['msg'])
+
+    @patch('app.routers.note._enqueue_note_task')
     def test_batch_retry_failed_allows_transcript_only_tasks_without_video_url(self, mock_enqueue):
         batch_id = 'batch-transcript-only'
         task_id = 'task-transcript-only'

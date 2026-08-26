@@ -143,8 +143,11 @@ export const batchPause = async (batchId: string) => {
   return await request.post('/batch_pause', { batch_id: batchId })
 }
 
-export const batchResume = async (batchId: string) => {
-  return await request.post('/batch_resume', { batch_id: batchId }) as {
+export const batchResume = async (batchId: string, override?: { provider_id?: string, model_name?: string }) => {
+  return await request.post('/batch_resume', {
+    batch_id: batchId,
+    ...(override?.provider_id && override?.model_name ? { provider_id: override.provider_id, model_name: override.model_name } : {}),
+  }) as {
     batch_id: string
     count: number
     control_state: 'RUNNING'
@@ -164,10 +167,11 @@ export const batchClearFailed = async (batchId: string) => {
   }
 }
 
-export const batchRetryFailed = async (batchId: string, taskId?: string) => {
+export const batchRetryFailed = async (batchId: string, taskId?: string, override?: { provider_id?: string, model_name?: string }) => {
   return await request.post('/batch_retry_failed', {
     batch_id: batchId,
     ...(taskId ? { task_id: taskId } : {}),
+    ...(override?.provider_id && override?.model_name ? { provider_id: override.provider_id, model_name: override.model_name } : {}),
   }) as {
     batch_id: string
     count: number

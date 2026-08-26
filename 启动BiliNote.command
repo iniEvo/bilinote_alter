@@ -6,7 +6,7 @@ BACKEND_DIR="$ROOT/backend"
 FRONTEND_DIR="$ROOT/BillNote_frontend"
 MISE_BIN="/Users/jiuyue/.local/bin/mise"
 # 从 mise 动态解析 ffmpeg 所在目录（mise 安装的 ffmpeg 路径含版本号，不写死）
-FFMPEG_BIN_DIR="$("$MISE_BIN" which ffmpeg 2>/dev/null | xargs dirname)"
+FFMPEG_BIN_DIR="$("$MISE_BIN" which ffmpeg 2>/dev/null | xargs -r dirname)"
 if [ -z "$FFMPEG_BIN_DIR" ] || [ ! -x "$FFMPEG_BIN_DIR/ffmpeg" ]; then
   # 兜底：扫描 mise installs 目录取最新版本
   FFMPEG_BIN_DIR="$(ls -d "$HOME"/.local/share/mise/installs/ffmpeg/*/.mise-bins 2>/dev/null | sort -V | tail -1)"

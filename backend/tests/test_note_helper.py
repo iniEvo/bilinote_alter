@@ -30,6 +30,28 @@ class TestNoteHelper(unittest.TestCase):
 
         self.assertEqual(result, markdown)
 
+    def test_replace_content_markers_bilibili_multipart(self):
+        markdown = "开头 *Content-01:02* 结尾"
+        result = note_helper.replace_content_markers(markdown, "BV1xx_p2", "bilibili")
+        self.assertIn("https://www.bilibili.com/video/BV1xx?p=2&t=62", result)
+        self.assertIn("[原片 @ 01:02]", result)
+
+    def test_replace_content_markers_youtube(self):
+        markdown = "开头 Content-[03:04] 结尾"
+        result = note_helper.replace_content_markers(markdown, "abc123", "youtube")
+        self.assertIn("https://www.youtube.com/watch?v=abc123&t=184s", result)
+
+    def test_replace_content_markers_douyin(self):
+        markdown = "开头 Content-00:05 结尾"
+        result = note_helper.replace_content_markers(markdown, "767644567", "douyin")
+        self.assertIn("https://www.douyin.com/video/767644567", result)
+
+    def test_replace_content_markers_other_platform_no_link(self):
+        markdown = "开头 *Content-01:02* 结尾"
+        result = note_helper.replace_content_markers(markdown, "xyz", "kuaishou")
+        self.assertIn("(01:02)", result)
+        self.assertNotIn("http", result)
+
 
 if __name__ == "__main__":
     unittest.main()
