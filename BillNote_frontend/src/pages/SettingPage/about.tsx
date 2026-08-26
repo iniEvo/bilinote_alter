@@ -48,19 +48,19 @@ export default function AboutPage() {
 
           <div className="flex flex-wrap justify-center gap-4">
             <Button asChild>
-              <a href="https://www.bilinote.app" target="_blank">
+              <a href="https://www.bilinote.app" target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
                 体验 BiliNote
               </a>
             </Button>
             <Button variant="outline" asChild>
-              <a href="https://github.com/JefferyHcool/BiliNote" target="_blank">
+              <a href="https://github.com/JefferyHcool/BiliNote" target="_blank" rel="noreferrer">
                 <Github className="mr-2 h-4 w-4" />
                 GitHub 仓库
               </a>
             </Button>
             <Button variant="outline" asChild>
-              <a href="https://github.com/JefferyHcool/BiliNote/releases" target="_blank">
+              <a href="https://github.com/JefferyHcool/BiliNote/releases" target="_blank" rel="noreferrer">
                 <Download className="mr-2 h-4 w-4" />
                 下载桌面版
               </a>
@@ -109,14 +109,15 @@ export default function AboutPage() {
         <section className="mb-16">
           <h2 className="mb-8 text-center text-3xl font-bold">📸 截图预览</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {images.map(num => (
-              <div key={num} className="overflow-hidden rounded-lg border shadow-sm">
+            {images.map((src, index) => (
+              <div key={src} className="overflow-hidden rounded-lg border shadow-sm">
                 <img
-                  src={num}
-                  alt={`BiliNote Screenshot ${num}`}
+                  src={src}
+                  alt={`BiliNote 界面截图 ${index + 1}`}
                   width={600}
                   height={400}
-                  className="w-full object-cover transition-transform hover:scale-105"
+                  loading="lazy"
+                  className="w-full object-cover transition-transform hover:scale-105 motion-reduce:transition-none motion-reduce:hover:scale-100"
                 />
               </div>
             ))}

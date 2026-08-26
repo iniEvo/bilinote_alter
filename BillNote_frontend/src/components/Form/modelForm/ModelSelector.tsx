@@ -59,18 +59,19 @@ export function ModelSelector({ providerId }: ModelSelectorProps) {
           onClick={() => loadModels(providerId)}
           disabled={loading}
         >
-          {loading ? '加载中...' : '刷新模型'}
+          {loading ? '加载中…' : '刷新模型'}
         </Button>
       </div>
 
       <Select value={selectedModel} onValueChange={setSelectedModel}>
-        <SelectTrigger className="w-[300px]">
+        <SelectTrigger className="w-[300px]" aria-label="选择模型">
           <SelectValue placeholder="请选择模型" />
         </SelectTrigger>
         <SelectContent>
           <div className="p-2">
             <Input
-              placeholder="搜索模型..."
+              placeholder="搜索模型…"
+              aria-label="搜索模型"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="h-8"
@@ -85,7 +86,7 @@ export function ModelSelector({ providerId }: ModelSelectorProps) {
       </Select>
 
       <Button onClick={handleSubmit} disabled={submitting || !selectedModel}>
-        {submitting ? '保存中...' : '保存模型'}
+        {submitting ? '保存中…' : '保存模型'}
       </Button>
     </div>
   )

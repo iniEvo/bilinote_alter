@@ -4,6 +4,7 @@ import {
   HardDriveDownload,
   Info,
   Activity,
+  DatabaseBackup,
 } from 'lucide-react'
 import MenuBar, { IMenuProps } from '@/pages/SettingPage/components/menuBar.tsx'
 
@@ -41,6 +42,12 @@ const Menu = () => {
       path: '/settings/monitor',
     },
     {
+      id: 'artifacts',
+      name: '存储管理',
+      icon: <DatabaseBackup />,
+      path: '/settings/artifacts',
+    },
+    {
       id: 'about',
       name: '关于',
       icon: <Info />,
@@ -56,8 +63,8 @@ const Menu = () => {
   return (
     <div className="flex h-full flex-col">
       <div className={'flex w-full flex-col gap-2'}>
-        <div className="text-2xl font-medium">设置</div>
-        <div className="text-sm font-light text-gray-800">全局配置与模型设置</div>
+        <h1 className="text-2xl font-medium">设置</h1>
+        <p className="text-sm font-light text-slate-600">全局配置与模型设置</p>
       </div>
       <div className="mt-6 flex-1">
         {menuList &&

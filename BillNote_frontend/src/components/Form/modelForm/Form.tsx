@@ -220,7 +220,7 @@ const ProviderForm = ({ isCreate = false }: { isCreate?: boolean }) => {
     await loadModelsById(id!)
   }
 
-  if (loading) return <div className="p-4">加载中...</div>
+  if (loading) return <div className="p-4">加载中…</div>
 
   return (
     <div className="flex flex-col gap-8 p-4">
@@ -245,7 +245,7 @@ const ProviderForm = ({ isCreate = false }: { isCreate?: boolean }) => {
               <FormItem className="flex items-center gap-4">
                 <FormLabel className="w-24 text-right">名称</FormLabel>
                 <FormControl>
-                  <Input {...field} disabled={isBuiltIn} className="flex-1" />
+                  <Input {...field} disabled={isBuiltIn} autoComplete="off" className="flex-1" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -258,7 +258,14 @@ const ProviderForm = ({ isCreate = false }: { isCreate?: boolean }) => {
               <FormItem className="flex items-center gap-4">
                 <FormLabel className="w-24 text-right">API Key</FormLabel>
                 <FormControl>
-                  <Input {...field} className="flex-1" />
+                  <Input
+                    {...field}
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="sk-…"
+                    className="flex-1"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -271,10 +278,18 @@ const ProviderForm = ({ isCreate = false }: { isCreate?: boolean }) => {
               <FormItem className="flex items-center gap-4">
                 <FormLabel className="w-24 text-right">API地址</FormLabel>
                 <FormControl>
-                  <Input {...field} className="flex-1" />
+                  <Input
+                    {...field}
+                    type="url"
+                    inputMode="url"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="https://api.example.com/v1"
+                    className="flex-1"
+                  />
                 </FormControl>
                 <Button type="button" onClick={handleTest} variant="ghost" disabled={testing}>
-                  {testing ? '测试中...' : '测试连通性'}
+                  {testing ? '测试中…' : '测试连通性'}
                 </Button>
                 <FormMessage />
               </FormItem>
@@ -325,8 +340,13 @@ const ProviderForm = ({ isCreate = false }: { isCreate?: boolean }) => {
                 return (
                   <span key={model.id} className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-0.5 text-sm text-blue-700">
                     {model.model_name}
-                    <button type="button" onClick={() => handelDelete(model.id)} className="hover:text-blue-900">
-                      <X className="h-3 w-3" />
+                    <button
+                      type="button"
+                      aria-label={`删除模型 ${model.model_name}`}
+                      onClick={() => handelDelete(model.id)}
+                      className="rounded transition-[color] hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </span>
 

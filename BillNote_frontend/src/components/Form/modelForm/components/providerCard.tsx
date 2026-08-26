@@ -1,6 +1,5 @@
 import { Switch } from '@/components/ui/switch'
-import { FC } from 'react'
-import styles from './index.module.css'
+import { FC, KeyboardEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AILogo from '@/components/Form/modelForm/Icons'
 import { useProviderStore } from '@/store/providerStore'
@@ -37,16 +36,25 @@ const ProviderCard: FC<IProviderCardProps> = ({
   const { id: currentId } = useParams()
   const isActive = currentId === id
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ')
+      return
+    event.preventDefault()
+    navigate(`/settings/model/${id}`)
+  }
+
   return (
     <div
-      className={
-        styles.card +
-        ' flex h-14 cursor-pointer items-center justify-between rounded border border-[#f3f3f3] p-2' +
-        (isActive ? ' bg-[#F0F0F0] font-semibold text-blue-600' : '')
-      }
-      // 整行可点跳转到对应供应商编辑页（之前 onClick 只挂在 icon+名字那一小块 div 上，
-      // 名字和开关之间的空白区域点不动）
+      role="link"
+      tabIndex={0}
+      aria-label={`编辑模型供应商 ${providerName}`}
+      aria-current={isActive ? 'true' : undefined}
+      onKeyDown={handleKeyDown}
       onClick={() => navigate(`/settings/model/${id}`)}
+      className={
+        'flex h-14 cursor-pointer items-center justify-between rounded-xl border p-2 transition-[background-color,border-color,color] hover:border-blue-200 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50' +
+        (isActive ? ' border-blue-200 bg-blue-50 font-medium text-blue-700' : ' border-slate-200')
+      }
     >
       <div className="flex items-center text-lg">
         <div className="flex h-9 w-9 items-center">
@@ -60,6 +68,7 @@ const ProviderCard: FC<IProviderCardProps> = ({
         <Switch
           checked={isChecked}
           onCheckedChange={handleToggle}
+          aria-label={`启用 ${providerName}`}
         />
       </div>
     </div>

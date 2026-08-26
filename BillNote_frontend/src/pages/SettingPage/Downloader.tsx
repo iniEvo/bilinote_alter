@@ -8,7 +8,7 @@ const Downloader = () => {
         <ProxyConfig />
         <Options></Options>
       </div>
-      <div className={'flex-4/5'}>
+      <div className={'min-w-0 flex-1 overflow-y-auto'}>
         <Outlet />
       </div>
     </div>

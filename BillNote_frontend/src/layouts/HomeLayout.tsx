@@ -23,13 +23,12 @@ const panelShellClass =
   'relative z-10 flex h-full flex-col overflow-hidden border border-white/60 bg-white/82 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl'
 
 const iconButtonClass =
-  'cursor-pointer rounded-xl border border-transparent p-2 text-slate-500 transition-all hover:border-blue-100 hover:bg-white hover:text-primary hover:shadow-sm'
+  'cursor-pointer rounded-xl border border-transparent p-2 text-slate-500 transition-[color,border-color,background-color,box-shadow] hover:border-blue-100 hover:bg-white hover:text-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
 
 const collapsedButtonClass =
   'relative z-20 flex h-full w-10 shrink-0 items-center justify-center border-r border-white/50 bg-white/70 backdrop-blur-xl transition-colors hover:bg-white/90'
 
 const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
-  const [, setShowSettings] = useState(false)
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
   const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false)
   const leftPanelRef = useRef<ImperativePanelHandle>(null)
@@ -50,7 +49,7 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
           <div className="mt-1 text-2xl font-semibold text-slate-900">把视频快速整理成更好读的结构化笔记</div>
         </div>
         <div className="hidden items-center gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-2 text-sm text-slate-600 shadow-sm backdrop-blur md:flex">
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" aria-hidden="true" />
           支持单条、批量与本地视频生成
         </div>
       </div>
@@ -85,9 +84,10 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                         <TooltipTrigger asChild>
                           <button
                             onClick={() => leftPanelRef.current?.collapse()}
+                            aria-label="收起工作区"
                             className={iconButtonClass}
                           >
-                            <PanelLeftClose className="h-5 w-5" />
+                            <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -97,9 +97,9 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                     </TooltipProvider>
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger onClick={() => setShowSettings(true)}>
-                          <Link to={'/settings'} className={iconButtonClass}>
-                            <SlidersHorizontal className="h-5 w-5" />
+                        <TooltipTrigger asChild>
+                          <Link to={'/settings'} aria-label="全局配置" className={iconButtonClass}>
+                            <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -124,9 +124,10 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => leftPanelRef.current?.expand()}
+                    aria-label="展开工作区"
                     className={collapsedButtonClass}
                   >
-                    <PanelLeftOpen className="h-4 w-4 text-slate-500" />
+                    <PanelLeftOpen className="h-4 w-4 text-slate-500" aria-hidden="true" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -158,9 +159,10 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => middlePanelRef.current?.collapse()}
+                          aria-label="收起历史"
                           className={iconButtonClass}
                         >
-                          <PanelLeftClose className="h-4 w-4" />
+                          <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -184,9 +186,10 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => middlePanelRef.current?.expand()}
+                    aria-label="展开历史"
                     className={collapsedButtonClass}
                   >
-                    <HistoryIcon className="h-4 w-4 text-slate-500" />
+                    <HistoryIcon className="h-4 w-4 text-slate-500" aria-hidden="true" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">

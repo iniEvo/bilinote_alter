@@ -72,7 +72,7 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
         onSelect(task.id)
       }}
       className={cn(
-        'group min-w-0 flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white/88 p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md',
+        'group min-w-0 flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white/88 p-2.5 shadow-sm transition-[transform,border-color,box-shadow,background-color] hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
         selected && 'border-blue-300 bg-blue-50/70 shadow-md ring-2 ring-blue-100',
       )}
     >
@@ -115,13 +115,14 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
                         type="button"
                         size="sm"
                         variant="ghost"
+                        aria-label="重试该任务"
                         onClick={(event) => {
                           event.stopPropagation()
                           void onRetry(task.id)
                         }}
-                        className="h-8 w-8 shrink-0 rounded-xl text-slate-400 opacity-100 transition hover:bg-slate-100 hover:text-slate-700 md:opacity-0 md:group-hover:opacity-100"
+                        className="h-8 w-8 shrink-0 rounded-xl text-slate-400 opacity-100 transition-[color,background-color] hover:bg-slate-100 hover:text-slate-700 md:opacity-0 md:group-hover:opacity-100"
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -137,13 +138,14 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
                       type="button"
                       size="sm"
                       variant="ghost"
+                      aria-label="删除该笔记"
                       onClick={(event) => {
                         event.stopPropagation()
                         onDelete(task.id)
                       }}
-                      className="h-8 w-8 shrink-0 rounded-xl text-slate-400 opacity-100 transition hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
+                      className="h-8 w-8 shrink-0 rounded-xl text-slate-400 opacity-100 transition-[color,background-color] hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
                     >
-                      <Trash className="h-4 w-4" />
+                      <Trash className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -183,7 +185,7 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
 
           <div className="mt-2.5 flex min-w-0 flex-wrap items-center justify-between gap-1.5 text-[11px] text-slate-500">
             <div className={cn('inline-flex min-w-0 max-w-full items-center gap-1 rounded-full px-2 py-1 font-medium', statusClassName(status))}>
-              {isRunning && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
+              {isRunning && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
               <span className="truncate">{STATUS_LABELS[status] || '处理中'}</span>
             </div>
             <span className="max-w-full truncate text-slate-400">{platform}</span>

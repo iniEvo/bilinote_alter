@@ -76,7 +76,8 @@ const NoteHistory: FC<NoteHistoryProps> = ({
     <div className="mb-2">
       <input
         type="text"
-        placeholder="搜索笔记标题..."
+        placeholder="搜索笔记标题…"
+        aria-label="搜索笔记标题"
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-blue-100"
         value={rawSearch}
         onChange={e => setRawSearch(e.target.value)}

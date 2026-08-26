@@ -182,6 +182,8 @@ export default function Transcriber() {
   }
 
   const handleDeleteCustomModel = async (name: string) => {
+    if (!window.confirm(`确定要删除自定义模型 ${name} 吗？删除后需重新添加才能选用。`))
+      return
     try {
       await deleteWhisperModel(name)
       toast.success(`已删除自定义模型 ${name}`)
@@ -229,7 +231,7 @@ export default function Transcriber() {
           <div className="space-y-2">
             <label className="text-sm font-medium">转写器类型</label>
             <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-full max-w-xs">
+              <SelectTrigger className="w-full max-w-xs" aria-label="转写器类型">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -246,7 +248,7 @@ export default function Transcriber() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Whisper 模型大小</label>
               <Select value={selectedModelSize} onValueChange={setSelectedModelSize}>
-                <SelectTrigger className="w-full max-w-xs">
+                <SelectTrigger className="w-full max-w-xs" aria-label="Whisper 模型大小">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -416,10 +418,11 @@ export default function Transcriber() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-500 hover:text-red-600"
+                        aria-label={`删除自定义模型 ${name}`}
+                        className="text-red-500 transition-[color,background-color] hover:bg-red-50 hover:text-red-600"
                         onClick={() => handleDeleteCustomModel(name)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
                   )
@@ -432,12 +435,16 @@ export default function Transcriber() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 placeholder="模型名称（自定义，如 my-large-v3）"
+                aria-label="自定义模型名称"
                 value={newModelName}
                 onChange={e => setNewModelName(e.target.value)}
                 className="sm:max-w-[220px]"
               />
               <Input
-                placeholder="HF repo_id 或本地路径"
+                placeholder="HF repo_id 或本地路径，如 Systran/faster-whisper-tiny…"
+                aria-label="HF repo_id 或本地模型目录"
+                spellCheck={false}
+                autoComplete="off"
                 value={newModelTarget}
                 onChange={e => setNewModelTarget(e.target.value)}
                 className="flex-1"

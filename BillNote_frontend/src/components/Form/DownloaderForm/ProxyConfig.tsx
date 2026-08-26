@@ -59,13 +59,18 @@ const ProxyConfig = () => {
     <div className="flex flex-col gap-2 rounded border border-neutral-200 p-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">全局代理</span>
-        <Switch checked={enabled} onCheckedChange={setEnabled} />
+        <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="启用全局代理" />
       </div>
       <p className="text-xs text-gray-400">
         作用于 AI 模型接口、转写接口（Groq 等）、YouTube 下载。
       </p>
       <Input
+        type="url"
+        inputMode="url"
+        spellCheck={false}
+        autoComplete="off"
         placeholder="http://127.0.0.1:7890"
+        aria-label="代理地址"
         value={url}
         disabled={!enabled}
         onChange={e => setUrl(e.target.value)}

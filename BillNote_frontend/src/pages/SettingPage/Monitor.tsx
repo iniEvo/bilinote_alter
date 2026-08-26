@@ -110,7 +110,7 @@ export default function Monitor() {
                             {loading && !status ? (
                                 <div className="flex items-center gap-2 text-gray-500">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    加载中...
+                                    加载中…
                                 </div>
                             ) : status ? (
                                 <div className="space-y-2 text-sm">
@@ -142,7 +142,7 @@ export default function Monitor() {
                             {loading && !status ? (
                                 <div className="flex items-center gap-2 text-gray-500">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    加载中...
+                                    加载中…
                                 </div>
                             ) : status ? (
                                 <div className="space-y-2 text-sm">
@@ -184,7 +184,7 @@ export default function Monitor() {
                             {loading && !status ? (
                                 <div className="flex items-center gap-2 text-gray-500">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    加载中...
+                                    加载中…
                                 </div>
                             ) : status ? (
                                 <div className="space-y-2 text-sm">
@@ -222,7 +222,7 @@ export default function Monitor() {
                             {loading && !status ? (
                                 <div className="flex items-center gap-2 text-gray-500">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    加载中...
+                                    加载中…
                                 </div>
                             ) : status ? (
                                 <div className="space-y-2 text-sm">

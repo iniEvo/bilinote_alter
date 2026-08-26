@@ -7,7 +7,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form.tsx'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import type { FieldErrors } from 'react-hook-form'
@@ -142,9 +142,13 @@ const SectionHeader = ({ title, tip }: { title: string, tip?: string }) => (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-blue-50 hover:text-primary">
-              <Info className="h-4 w-4" />
-            </div>
+            <button
+              type="button"
+              aria-label={`${title}说明`}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-[color,background-color] hover:bg-blue-50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
           </TooltipTrigger>
           <TooltipContent className="max-w-60 text-xs">{tip}</TooltipContent>
         </Tooltip>
@@ -167,12 +171,12 @@ const CheckboxGroup = ({
       <label
         key={v}
         className={[
-          'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all',
+          'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-[border-color,background-color,color,box-shadow]',
           disabledMap[v]
             ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
             : value.includes(v)
               ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm'
-              : 'cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/50',
+              : 'cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/50 has-focus-visible:ring-2 has-focus-visible:ring-ring/50',
         ].join(' ')}
       >
         <Checkbox
@@ -202,6 +206,7 @@ const NoteForm = () => {
   const [duplicateFlowMode, setDuplicateFlowMode] = useState<'single' | 'batch'>('single')
   const [batchDuplicateProgress, setBatchDuplicateProgress] = useState({ total: 0, handled: 0, skipped: 0, continued: 0 })
   const [continuingRemainingDuplicates, setContinuingRemainingDuplicates] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
   const {
     addBatchGroup,
     addPendingTask,
@@ -787,7 +792,7 @@ const NoteForm = () => {
           type="submit"
           className={[
             !editing ? 'w-full' : 'w-2/3',
-            'h-11 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-500 hover:to-cyan-400',
+            'h-11 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/20 transition-shadow hover:shadow-blue-500/30',
           ].join(' ')}
           disabled={buttonBusy}
         >
@@ -941,7 +946,8 @@ const NoteForm = () => {
                 <FormItem className="mt-2">
                   <Input
                     disabled={!!editing && batchCount === 0}
-                    placeholder={platform === 'local' ? '请输入本地视频路径' : '可输入单个链接，或留空使用下方批量输入'}
+                    placeholder={platform === 'local' ? '请输入本地视频路径，如 /Users/xxx/video.mp4' : '粘贴视频链接，如 https://b23.tv/…'}
+                    aria-label="视频链接"
                     className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
                     {...field}
                   />
@@ -958,7 +964,8 @@ const NoteForm = () => {
                   <FormItem className="mt-3">
                     <Textarea
                       disabled={!!editing && batchCount === 0}
-                      placeholder="批量生成：每行一个视频链接"
+                      placeholder="批量生成：每行一个视频链接，如 https://b23.tv/…"
+                      aria-label="批量视频链接，每行一个"
                       className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner disabled:cursor-not-allowed disabled:opacity-60"
                       {...field}
                     />
@@ -976,37 +983,50 @@ const NoteForm = () => {
                 <FormItem className="flex-1">
                   {platform === 'local' && (
                     <div
-                      className="mt-3 flex h-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/70 transition-colors hover:border-primary hover:bg-blue-50/50"
+                      role="button"
+                      tabIndex={isUploading ? -1 : 0}
+                      aria-label="上传本地视频：拖拽文件到这里，或按回车键选择文件"
+                      aria-disabled={isUploading}
+                      className="mt-3 flex h-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/70 transition-[border-color,background-color] hover:border-primary hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       onDragOver={e => {
                         e.preventDefault()
                         e.stopPropagation()
                       }}
                       onDrop={e => {
                         e.preventDefault()
+                        if (isUploading)
+                          return
                         const file = e.dataTransfer.files?.[0]
                         if (file)
                           handleFileUpload(file, field.onChange)
                       }}
-                      onClick={() => {
-                        const input = document.createElement('input')
-                        input.type = 'file'
-                        input.accept = 'video/*'
-                        input.onchange = e => {
-                          const file = (e.target as HTMLInputElement).files?.[0]
+                      onKeyDown={e => {
+                        if (e.key !== 'Enter' && e.key !== ' ')
+                          return
+                        e.preventDefault()
+                        inputRef.current?.click()
+                      }}
+                      onClick={() => inputRef.current?.click()}
+                    >
+                      <input
+                        ref={inputRef}
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0]
                           if (file)
                             handleFileUpload(file, field.onChange)
-                        }
-                        input.click()
-                      }}
-                    >
+                        }}
+                      />
                       {isUploading
                         ? <p className="text-center text-sm text-blue-500">上传中，请稍候…</p>
                         : uploadSuccess
-                          ? <p className="text-center text-sm text-green-500">上传成功！</p>
+                          ? <p className="text-center text-sm text-green-600">上传成功</p>
                           : (
-                              <p className="text-center text-sm text-gray-500">
-                                拖拽文件到这里上传 <br />
-                                <span className="text-xs text-gray-400">或点击选择文件</span>
+                              <p className="text-center text-sm text-slate-500">
+                                拖拽视频文件到这里上传 <br />
+                                <span className="text-xs text-slate-400">或点击 / 按回车选择文件</span>
                               </p>
                             )}
                     </div>
@@ -1121,8 +1141,10 @@ const NoteForm = () => {
                       className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
                       disabled={!videoUnderstandingEnabled}
                       type="number"
+                      inputMode="numeric"
                       min={1}
                       max={30}
+                      aria-label="采样间隔（秒）"
                       value={field.value ?? 6}
                       onChange={e => field.onChange(parsePositiveInt(e, 6))}
                     />
@@ -1145,8 +1167,10 @@ const NoteForm = () => {
                         <Input
                           disabled={!videoUnderstandingEnabled}
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={10}
+                          aria-label="拼图列数"
                           value={columns}
                           onChange={(e) => {
                             const next = parsePositiveInt(e, columns)
@@ -1154,12 +1178,14 @@ const NoteForm = () => {
                           }}
                           className="h-11 w-16 rounded-xl border-slate-200 bg-white shadow-sm"
                         />
-                        <span>x</span>
+                        <span aria-hidden="true">×</span>
                         <Input
                           disabled={!videoUnderstandingEnabled}
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={10}
+                          aria-label="拼图行数"
                           value={rows}
                           onChange={(e) => {
                             const next = parsePositiveInt(e, rows)
@@ -1210,7 +1236,7 @@ const NoteForm = () => {
               render={({ field }) => (
                 <FormItem>
                   <SectionHeader title="备注" tip="可在 Prompt 结尾附加自定义说明" />
-                  <Textarea className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner" placeholder="笔记需要罗列出 xxx 关键点…" {...field} />
+                  <Textarea className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner" placeholder="笔记需要罗列出 xxx 关键点…" aria-label="备注" {...field} />
                   <FormMessage />
                 </FormItem>
               )}

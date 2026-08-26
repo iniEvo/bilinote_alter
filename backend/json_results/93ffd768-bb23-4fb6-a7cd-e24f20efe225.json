@@ -1,0 +1,1348 @@
+{
+  "markdown": "> 来源链接：https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6\n\n# 【AI逆向神器】完全无限制的 AI 逆向魔改浏览器笔记\n\n## 目录\n- 1. 视频概述\n- 2. 核心痛点：普通浏览器无法绕过 5 秒盾\n- 3. 解决方案：Grok 浏览器 MCP\n- 4. 演示对比：普通浏览器 vs Grok 浏览器\n- 5. 为什么 AI 逆向需要 MCP\n- 6. Grok 浏览器 MCP 的能力与特性\n- 7. MCP 工具集与逆向能力\n- 8. 接入 AI IDE 的步骤\n- 9. 重要结论与建议\n- AI 总结\n\n## 1. 视频概述\n\n本视频围绕“AI 逆向/爬虫遇到网页自动化检测”的痛点，介绍一款魔改浏览器及配套 MCP 工具：**Grok 浏览器 MCP**。\n\n该工具被描述为源码级指纹浏览器，不是通过 JS 伪装，也不是普通 Chrome。它可以接入 AI IDE，由 AI 直接调度浏览器，完成验证码通过、网络抓包、断点调试、Hook 等逆向操作。\n\n## 2. 核心痛点：普通浏览器无法绕过 5 秒盾\n\n- 用 AI 做爬虫逆向时，经常遇到“五秒盾（5秒盾）”“网页自动化检测”“V2 验证码（疑似 reCAPTCHA v2）”等。\n- 普通浏览器被自动化测试控制时，通常会提示“正在受到自动化测试软件的控制”。\n- 即使人工拖动滑块，轨迹已经是真实鼠标轨迹，仍然会验证失败，刷新后继续失败。\n- 如果只使用普通 MCP 打开普通 Chrome，遇到这类验证码基本无法继续。\n\n## 3. 解决方案：Grok 浏览器 MCP\n\n- 视频介绍的工具叫 **Grok 浏览器 MCP**，转录中也出现 Grok/Cloak/GROUER/GROUKEN 等变体。\n- 本质：**指纹版谷歌浏览器**。\n- 与普通自动化浏览器的区别：\n  - 不是通过 JS 伪装指纹。\n  - 不是普通 Chrome。\n  - 是源码级 C++ 实现。\n  - 从浏览器内部修改指纹与自动化特征。\n- 使用它可以“将真实的浏览器环境直接交给 AI，而不是去伪装环境”。\n\n## 4. 演示对比：普通浏览器 vs Grok 浏览器\n\n普通 Chrome：\n\n- 打开带 V2 验证码的页面。\n- 出现滑块验证。\n- 滑动后显示“验证失败请刷新”。\n- 刷新后仍提示受到自动化控制。\n\nGrok 浏览器：\n\n- 打开同类 V2 验证页面。\n- 滑动验证一次通过。\n- 可以正常返回数据或进入页面。\n\n补充细节：如果 Grok 浏览器之前已经通过验证并留下缓存，可能不再弹出验证码；需要清除缓存或换一个同类验证页重新测试。\n\n## 5. 为什么 AI 逆向需要 MCP\n\n- 遇到验证码时，不能只靠 HTTP 请求或简单抓取 JS 文件分析。\n- 需要真实滑动、查看调用栈、插桩、抓包。\n- MCP 相当于给 AI “一双手”，让 AI 可以操作浏览器。\n- 接入 MCP 后，浏览器 CDP、网络面板、脚本 Hook 都可以由 AI 调度。\n- 这样 AI 逆向不再只是静态分析，而是真实浏览器环境下的动态调试。\n\n## 6. Grok 浏览器 MCP 的能力与特性\n\n- 宣传点：可以让“机器检测先输一局”。\n- 号称可绕过市面上主流的机器检测：\n  - 五秒盾（5秒盾）。\n  - 谷歌验证码，疑似 reCAPTCHA。\n  - 其他机器与指纹检测。\n- 技术特性：\n  - 源码级指纹浏览器，非 JS 伪装。\n  - 从浏览器内部修改特征，而不是事后注入。\n  - 可处理：Canvas、WebGL、Audio、字体、GPU、屏幕、WebRTC、自动化信号等。\n  - 原生 CDP 网络与调度能力。\n  - 检测方看到的是浏览器本身能力，而非注入后的异常特征。\n- 视频提及数据：30+ 检测站范围，已通过 69 套工具，具体数据以视频宣传为准。\n\n## 7. MCP 工具集与逆向能力\n\n页面入口与基础操作：\n\n- 打开访问。\n- 点击。\n- 输入。\n\nNetwork 网络面板：\n\n- 请求响应。\n- 调用来源。\n\nSource 源码：\n\n- 查看页面源代码。\n\nDebugger 调试：\n\n- 下断点。\n- 查看调用栈与变量。\n- 插桩。\n- 帮助跟栈定位。\n\nHook 能力：\n\n- 自定义 Hook。\n- 定位加密点或参数生成位置。\n- 支持 Cookie、WebSocket（WS/WSS）、WASM 离线验证，转录中为 WSM，疑似 WASM。\n\n这些操作都可以通过 AI 联动 MCP 自动完成，减少手动分析。\n\n## 8. 接入 AI IDE 的步骤\n\n1\\. 准备一个 AI 编程工具或 AI IDE。  \n2\\. 在 AI IDE 的配置文件中添加浏览器工具。  \n3\\. 添加 **Grok 浏览器 reverse MCP** 对应的链接或地址。  \n4\\. 让 AI 通过该 MCP 联动 Grok 浏览器。  \n5\\. 开始将逆向任务交给 AI：访问页面、过验证码、抓包、下断点、Hook 加密点等。\n\n关键点：\n\n- 必须同时具备浏览器工具和 reverse MCP。\n- 指定链接后，AI 才能调用 Grok 浏览器。\n- 配置完成后，可以尝试把完整逆向链路交给 AI 执行，观察其调用浏览器、网络与调试能力。\n\n## 9. 重要结论与建议\n\n- 该 MCP 被认为是 AI 逆向中的必要工具，不是可有可无。\n- 普通浏览器自动化的“指纹污染”问题很难绕过验证码；魔改源码级浏览器是更合理的方案。\n- 接入后可以大幅减少手动调试、分析加密位置、找断点的重复工作。\n- 适合场景：AI 逆向、JS 逆向、爬虫、自动化脚本、处理五秒盾和验证码的项目实战。\n\n## AI 总结\n\n本视频介绍了一款面向 AI 逆向场景的魔改浏览器 **Grok 浏览器 MCP**。它被定位为源码级指纹浏览器，不是通过 JS 伪装，而是直接修改浏览器内部特征，从而更自然地绕过五秒盾、reCAPTCHA 等自动化检测。视频通过普通 Chrome 与 Grok 浏览器的滑块验证码对比，说明了为何需要 MCP：它相当于给 AI 一双可以操作浏览器的手，能够调度 CDP、网络面板、调试器和 Hook。接入方法是在 AI IDE 配置文件中添加浏览器工具与 Grok reverse MCP 链接。最终结论是：这类 MCP 是 AI 逆向和爬虫实战中值得安装的关键工具。",
+  "transcript": {
+    "language": "ai-zh",
+    "full_text": "用AI搞爬虫逆向的时候 遇到五秒蹲网页自动化检测的时候 如果说你用的是普通浏览器 那么无论你怎么操作 始终都是无法绕过的 只有正确的使用魔改浏览器才能接入AI 正确进行项目实战 今天就给大家分享我的魔改浏览器 和MCP等AI立项工具 你有病 今天给大家介绍的是我在做AI立项的时候 经常会用到的一个MCP工具 叫做grok浏览器MCP 那么什么是group呢 GRP说白了它就是一个指纹的谷歌浏览器 那么为什么我们要去用指纹浏览器 而不去用一个普通的谷歌浏览器呃 不知道大家有没有去在做AI立项的时候 或者或者说去写一些自动化脚本的时候啊 他去打开普通的谷歌浏览器 进入到对应的页面 那么页面里面的话可能会有一些验证码 那种这种验证码呢 你通过普通的啊 MCP打开的那个普通谷歌浏览器 或者通过自动化去打开的浏览器 它无论如何都是通不过去的 你划不划不过去的 这里可以给大家简单看一下 比如说这个地方 我们来去让它基于抗啊DEPTTS 打开普通谷歌浏览器进入 我们给他一个页面啊 这个页面 这个页面就会有这样的一个V2的验证码 我们可以把这个链接给到他 好在这个地方呢 他打开了这样的一个普通的谷歌浏览器 我们可以来看到他也会有一个访问验证滑动 会发现他这里验证中好 验证失败请刷新 那我们刷新一下 在上面呢也会有个com 正在受到自动化测试软件的控制啊 那么就说明他在这个地方 就是通过那个自动化测试来去打开的 来再滑动它也是通不过去的 那这个时候就是你不论怎么去划你的轨迹 已经是一个真实的人工去拖动鼠标的轨迹了 他都无法去验证成功 那这个时候我们再让它干嘛呢 我这里就让他再去换一个浏览器啊 换一个clock 这里的话我们基于啊gs s revers G s revs m c p 打开group c l o a k浏览器 同样呢也是进入到这样的一个页面当中 来去对比看一下好 这个地方呢是打开了这个浏览器 稍微有点大啊 给大家简单调整一下 额这里好像就直接没有弹了是吧 没有弹到 我们可以去刷新一下 他弹了吗 不弹是吧 不弹了 就让他清空一下缓存吧 清一下缓存 重新打开 因为刚刚我已经是通过这个浏览器滑动 通过了一次 它就有缓存 得把它的缓存清掉之后 让它重新进入到对应的页面当中 刚刚进了缓存之后还是弹不出来是吧 那我们就这里换一个啊 换一个网站也是一个V2的 我们这里呢是最开始通过那个count tt来去打开的 他这里滑动呢也是无法去验证通过的 怎么去刷新它都验证验证不过去 那我们这里通过这个group来去打开的 一滑动验证验证通过啊 就回放到对应哪个数据里面去了 所以这个时候就是说明我们通过这个GROUER 就是指纹谷歌浏览器打开的页面 它是能够去它弹出验证码之后 也是能够去过掉这个验证码的 包括为什么我们要去用一些MCP 大家可能啊不太清楚 为什么我们要去用MCP呢 我们在做AI立项的时候 你再通过AI去逆向分析一些网站 如果做一些简单的 那可以直接通过map feh来去直接请求来 去拿到它对应那个网站所加载的哪些JS文件 来去做分析 那如果说遇到这种验证码的 遇到这种验证码的啊 你想要去过这种验证码 你就必须要去滑动 对不对 滑动 那你这个轨迹AI怎么拿到呢 或者说他怎么去帮你啊 这个看调用堆栈啊 去做对应的一些插装 然后去做对应哪些抓包 怎么去抓呢 对不对 那就需要去借助这样的一个MCP浏览器 来去实现这样的一些效果 这样的一些功能 所以这个是我们为什么要去用MCP的 一个原因 就相当是什么呢 呃我们通过MCP给AI一个操作的工具啊 让它长出这一双手嘛对吧 那么再回到这个broken里面来 那么这里的标题写的是什么 让机器检测先输一局 也就是说我们这个GROUKEN呢 它是能够去过掉市面上啊 所有的这个机器检测的 目前是没有遇到过不去的啊 包括什么五秒盾啊 谷歌的PC他都能去过掉 还有个是呃这个基因检测 它是无法去限制我们的这个浏览器的 它是源码级的指纹浏览器 并不是通过JS伪装 也不是普通的这个谷歌谷歌浏览器 我们再去接入本地的HMCP 那么浏览器CDP网络脚本hook 都完全由AI来调度了 那也就是说我们通过AI连接MCP 直接去操作这个浏览器 那么这个时候再去逆向一些网站 他真的是直接通过这一套指纹浏览器来去实现 它整个的一个环境就合理的多 这就是什么呢 将真实的浏览器环境直接交给AI 而不是去伪装环境 配上一套能把所有页面拆开的MCP 那他会有70一个源码级的C加加 然后这里呢30加的这个检测站范围 都是已经通过了的69套啊 M4P工具CDP呢是原生的网络与调度证据 它并不是伪装的像 而是直接从浏览器内部去改 比如说我们的这个canvas 然后这个web gl a dio字体 GPU屏幕map rtc和自动化信号等 能力都能够去做到康贝尔原码层 所以它检测就是有的网站 它检测看到的不再是我们像之前去后 事后注入的JS 而是它直接在源码层浏览器 它本身自带的一个这些功能的 所以源源码及指纹原生自动化 以及硬核检测目标 一台浏览器呢是有69把工具的 比如说我们的这个页面 它只是入口嘛 真正的火箭它是在做源码断点 hook和运行的时候 那么打开访问 点击输入 这个是页面的一些操作请求响应调用来源呢 这个是network 就是网络面板 它里面的一些功能 那么原版呢就是通过去查看source面板啊 去看它里面的一些源代码呃 第八个呢比如说调断点 调用栈变量 它是可以去插装 可以去下断点 可以去帮你去跟占的 这个是已经可以通过啊AI联动MCP来去实现的 hook呢是可以去自写hook来 去hook到对应啊的那个加密点生成位置 包括cookie w s是 还有就是WSM啊 这个WSM离线验证都是能够去做到的 比如说我们想要去给AI加这样的MCP 你就要先有一个AI的编程工具 就是AI id在它的配置文件当中呢 去写上这样的一个 就这个就是那个呃 首先你要有这样的工具啊 就浏览器工具 然后再去加上对应的一个reverse m cp 这个就是GROUKER浏览器 revers MCP专门做专门做立项的 指定上这样的一个链接之后 他就可以去通过AI来联动这样的一个broker了 那这个时候我们就可以去将整个的一个立项 全过程交给AI去实现 就不再需要我们手动去做任何的调试分析 以及加密断点的一个查找了啊 所以这个MCP呢就一定是有必要去安装的 而不是说而不是说这个可有可无的 那么有了这样的一套MCP之后 我们才能够将整个的网站全流程交给AH打通",
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 1.44,
+        "text": "用AI搞爬虫逆向的时候"
+      },
+      {
+        "start": 1.44,
+        "end": 3.32,
+        "text": "遇到五秒蹲网页自动化检测的时候"
+      },
+      {
+        "start": 3.32,
+        "end": 4.68,
+        "text": "如果说你用的是普通浏览器"
+      },
+      {
+        "start": 4.68,
+        "end": 5.72,
+        "text": "那么无论你怎么操作"
+      },
+      {
+        "start": 5.72,
+        "end": 6.7,
+        "text": "始终都是无法绕过的"
+      },
+      {
+        "start": 6.7,
+        "end": 9.06,
+        "text": "只有正确的使用魔改浏览器才能接入AI"
+      },
+      {
+        "start": 9.06,
+        "end": 10.14,
+        "text": "正确进行项目实战"
+      },
+      {
+        "start": 10.14,
+        "end": 11.66,
+        "text": "今天就给大家分享我的魔改浏览器"
+      },
+      {
+        "start": 11.66,
+        "end": 13.38,
+        "text": "和MCP等AI立项工具"
+      },
+      {
+        "start": 13.38,
+        "end": 14.739,
+        "text": "你有病"
+      },
+      {
+        "start": 15.099,
+        "end": 17.339,
+        "text": "今天给大家介绍的是我在做AI立项的时候"
+      },
+      {
+        "start": 17.339,
+        "end": 19.119,
+        "text": "经常会用到的一个MCP工具"
+      },
+      {
+        "start": 19.119,
+        "end": 21.02,
+        "text": "叫做grok浏览器MCP"
+      },
+      {
+        "start": 21.02,
+        "end": 22.24,
+        "text": "那么什么是group呢"
+      },
+      {
+        "start": 22.24,
+        "end": 25.1,
+        "text": "GRP说白了它就是一个指纹的谷歌浏览器"
+      },
+      {
+        "start": 25.1,
+        "end": 27.22,
+        "text": "那么为什么我们要去用指纹浏览器"
+      },
+      {
+        "start": 27.22,
+        "end": 29.42,
+        "text": "而不去用一个普通的谷歌浏览器呃"
+      },
+      {
+        "start": 29.42,
+        "end": 31.3,
+        "text": "不知道大家有没有去在做AI立项的时候"
+      },
+      {
+        "start": 31.3,
+        "end": 33.58,
+        "text": "或者或者说去写一些自动化脚本的时候啊"
+      },
+      {
+        "start": 33.58,
+        "end": 35.36,
+        "text": "他去打开普通的谷歌浏览器"
+      },
+      {
+        "start": 35.36,
+        "end": 36.51,
+        "text": "进入到对应的页面"
+      },
+      {
+        "start": 36.51,
+        "end": 38.55,
+        "text": "那么页面里面的话可能会有一些验证码"
+      },
+      {
+        "start": 38.55,
+        "end": 39.47,
+        "text": "那种这种验证码呢"
+      },
+      {
+        "start": 39.47,
+        "end": 41.16,
+        "text": "你通过普通的啊"
+      },
+      {
+        "start": 41.16,
+        "end": 42.76,
+        "text": "MCP打开的那个普通谷歌浏览器"
+      },
+      {
+        "start": 42.76,
+        "end": 44.32,
+        "text": "或者通过自动化去打开的浏览器"
+      },
+      {
+        "start": 44.32,
+        "end": 45.96,
+        "text": "它无论如何都是通不过去的"
+      },
+      {
+        "start": 45.96,
+        "end": 46.98,
+        "text": "你划不划不过去的"
+      },
+      {
+        "start": 46.98,
+        "end": 49.23,
+        "text": "这里可以给大家简单看一下"
+      },
+      {
+        "start": 49.23,
+        "end": 49.91,
+        "text": "比如说这个地方"
+      },
+      {
+        "start": 49.91,
+        "end": 53.75,
+        "text": "我们来去让它基于抗啊DEPTTS"
+      },
+      {
+        "start": 53.75,
+        "end": 57.33,
+        "text": "打开普通谷歌浏览器进入"
+      },
+      {
+        "start": 57.33,
+        "end": 58.61,
+        "text": "我们给他一个页面啊"
+      },
+      {
+        "start": 58.61,
+        "end": 59.01,
+        "text": "这个页面"
+      },
+      {
+        "start": 59.01,
+        "end": 60.73,
+        "text": "这个页面就会有这样的一个V2的验证码"
+      },
+      {
+        "start": 60.73,
+        "end": 63.13,
+        "text": "我们可以把这个链接给到他"
+      },
+      {
+        "start": 63.29,
+        "end": 64.37,
+        "text": "好在这个地方呢"
+      },
+      {
+        "start": 64.37,
+        "end": 67.09,
+        "text": "他打开了这样的一个普通的谷歌浏览器"
+      },
+      {
+        "start": 67.09,
+        "end": 70.25,
+        "text": "我们可以来看到他也会有一个访问验证滑动"
+      },
+      {
+        "start": 70.25,
+        "end": 72.49,
+        "text": "会发现他这里验证中好"
+      },
+      {
+        "start": 72.49,
+        "end": 73.41,
+        "text": "验证失败请刷新"
+      },
+      {
+        "start": 73.41,
+        "end": 74.8,
+        "text": "那我们刷新一下"
+      },
+      {
+        "start": 74.8,
+        "end": 76.28,
+        "text": "在上面呢也会有个com"
+      },
+      {
+        "start": 76.28,
+        "end": 78.12,
+        "text": "正在受到自动化测试软件的控制啊"
+      },
+      {
+        "start": 78.12,
+        "end": 79.2,
+        "text": "那么就说明他在这个地方"
+      },
+      {
+        "start": 79.2,
+        "end": 81.32,
+        "text": "就是通过那个自动化测试来去打开的"
+      },
+      {
+        "start": 81.32,
+        "end": 83.86,
+        "text": "来再滑动它也是通不过去的"
+      },
+      {
+        "start": 83.86,
+        "end": 86.78,
+        "text": "那这个时候就是你不论怎么去划你的轨迹"
+      },
+      {
+        "start": 86.78,
+        "end": 89.34,
+        "text": "已经是一个真实的人工去拖动鼠标的轨迹了"
+      },
+      {
+        "start": 89.34,
+        "end": 90.78,
+        "text": "他都无法去验证成功"
+      },
+      {
+        "start": 90.78,
+        "end": 92.199,
+        "text": "那这个时候我们再让它干嘛呢"
+      },
+      {
+        "start": 92.199,
+        "end": 95.599,
+        "text": "我这里就让他再去换一个浏览器啊"
+      },
+      {
+        "start": 95.599,
+        "end": 97.55,
+        "text": "换一个clock"
+      },
+      {
+        "start": 97.55,
+        "end": 103.28,
+        "text": "这里的话我们基于啊gs s revers"
+      },
+      {
+        "start": 103.28,
+        "end": 107.02,
+        "text": "G s revs m c p"
+      },
+      {
+        "start": 107.02,
+        "end": 111.04,
+        "text": "打开group c l o a k浏览器"
+      },
+      {
+        "start": 111.04,
+        "end": 113.02,
+        "text": "同样呢也是进入到这样的一个页面当中"
+      },
+      {
+        "start": 113.02,
+        "end": 114.5,
+        "text": "来去对比看一下好"
+      },
+      {
+        "start": 114.5,
+        "end": 116.58,
+        "text": "这个地方呢是打开了这个浏览器"
+      },
+      {
+        "start": 116.58,
+        "end": 117.46,
+        "text": "稍微有点大啊"
+      },
+      {
+        "start": 117.46,
+        "end": 118.74,
+        "text": "给大家简单调整一下"
+      },
+      {
+        "start": 118.74,
+        "end": 120.46,
+        "text": "额这里好像就直接没有弹了是吧"
+      },
+      {
+        "start": 120.46,
+        "end": 120.74,
+        "text": "没有弹到"
+      },
+      {
+        "start": 120.74,
+        "end": 122.58,
+        "text": "我们可以去刷新一下"
+      },
+      {
+        "start": 122.58,
+        "end": 123.54,
+        "text": "他弹了吗"
+      },
+      {
+        "start": 123.54,
+        "end": 123.94,
+        "text": "不弹是吧"
+      },
+      {
+        "start": 123.94,
+        "end": 124.22,
+        "text": "不弹了"
+      },
+      {
+        "start": 124.22,
+        "end": 125.48,
+        "text": "就让他清空一下缓存吧"
+      },
+      {
+        "start": 125.48,
+        "end": 127.69,
+        "text": "清一下缓存"
+      },
+      {
+        "start": 127.69,
+        "end": 129.78,
+        "text": "重新打开"
+      },
+      {
+        "start": 129.86,
+        "end": 132.42,
+        "text": "因为刚刚我已经是通过这个浏览器滑动"
+      },
+      {
+        "start": 132.42,
+        "end": 132.9,
+        "text": "通过了一次"
+      },
+      {
+        "start": 132.9,
+        "end": 133.76,
+        "text": "它就有缓存"
+      },
+      {
+        "start": 133.76,
+        "end": 135.06,
+        "text": "得把它的缓存清掉之后"
+      },
+      {
+        "start": 135.06,
+        "end": 137.14,
+        "text": "让它重新进入到对应的页面当中"
+      },
+      {
+        "start": 137.14,
+        "end": 139.54,
+        "text": "刚刚进了缓存之后还是弹不出来是吧"
+      },
+      {
+        "start": 139.54,
+        "end": 140.82,
+        "text": "那我们就这里换一个啊"
+      },
+      {
+        "start": 140.82,
+        "end": 143.009,
+        "text": "换一个网站也是一个V2的"
+      },
+      {
+        "start": 143.009,
+        "end": 145.789,
+        "text": "我们这里呢是最开始通过那个count tt来去打开的"
+      },
+      {
+        "start": 145.789,
+        "end": 148.849,
+        "text": "他这里滑动呢也是无法去验证通过的"
+      },
+      {
+        "start": 148.849,
+        "end": 150.86,
+        "text": "怎么去刷新它都验证验证不过去"
+      },
+      {
+        "start": 150.86,
+        "end": 153.04,
+        "text": "那我们这里通过这个group来去打开的"
+      },
+      {
+        "start": 153.04,
+        "end": 156.43,
+        "text": "一滑动验证验证通过啊"
+      },
+      {
+        "start": 156.43,
+        "end": 158.83,
+        "text": "就回放到对应哪个数据里面去了"
+      },
+      {
+        "start": 158.83,
+        "end": 161.57,
+        "text": "所以这个时候就是说明我们通过这个GROUER"
+      },
+      {
+        "start": 161.57,
+        "end": 163.39,
+        "text": "就是指纹谷歌浏览器打开的页面"
+      },
+      {
+        "start": 163.39,
+        "end": 164.95,
+        "text": "它是能够去它弹出验证码之后"
+      },
+      {
+        "start": 164.95,
+        "end": 166.99,
+        "text": "也是能够去过掉这个验证码的"
+      },
+      {
+        "start": 166.99,
+        "end": 169.4,
+        "text": "包括为什么我们要去用一些MCP"
+      },
+      {
+        "start": 169.4,
+        "end": 170.56,
+        "text": "大家可能啊不太清楚"
+      },
+      {
+        "start": 170.56,
+        "end": 171.78,
+        "text": "为什么我们要去用MCP呢"
+      },
+      {
+        "start": 171.78,
+        "end": 173.08,
+        "text": "我们在做AI立项的时候"
+      },
+      {
+        "start": 173.08,
+        "end": 175.94,
+        "text": "你再通过AI去逆向分析一些网站"
+      },
+      {
+        "start": 175.94,
+        "end": 176.9,
+        "text": "如果做一些简单的"
+      },
+      {
+        "start": 176.9,
+        "end": 178.82,
+        "text": "那可以直接通过map feh来去直接请求来"
+      },
+      {
+        "start": 178.82,
+        "end": 181.54,
+        "text": "去拿到它对应那个网站所加载的哪些JS文件"
+      },
+      {
+        "start": 181.54,
+        "end": 182.36,
+        "text": "来去做分析"
+      },
+      {
+        "start": 182.36,
+        "end": 184.11,
+        "text": "那如果说遇到这种验证码的"
+      },
+      {
+        "start": 184.11,
+        "end": 185.87,
+        "text": "遇到这种验证码的啊"
+      },
+      {
+        "start": 185.87,
+        "end": 186.87,
+        "text": "你想要去过这种验证码"
+      },
+      {
+        "start": 186.87,
+        "end": 187.95,
+        "text": "你就必须要去滑动"
+      },
+      {
+        "start": 187.95,
+        "end": 188.27,
+        "text": "对不对"
+      },
+      {
+        "start": 188.27,
+        "end": 188.69,
+        "text": "滑动"
+      },
+      {
+        "start": 188.69,
+        "end": 190.79,
+        "text": "那你这个轨迹AI怎么拿到呢"
+      },
+      {
+        "start": 190.79,
+        "end": 193.11,
+        "text": "或者说他怎么去帮你啊"
+      },
+      {
+        "start": 193.11,
+        "end": 195.71,
+        "text": "这个看调用堆栈啊"
+      },
+      {
+        "start": 195.71,
+        "end": 197.09,
+        "text": "去做对应的一些插装"
+      },
+      {
+        "start": 197.09,
+        "end": 198.57,
+        "text": "然后去做对应哪些抓包"
+      },
+      {
+        "start": 198.57,
+        "end": 199.05,
+        "text": "怎么去抓呢"
+      },
+      {
+        "start": 199.05,
+        "end": 199.41,
+        "text": "对不对"
+      },
+      {
+        "start": 199.41,
+        "end": 201.6,
+        "text": "那就需要去借助这样的一个MCP浏览器"
+      },
+      {
+        "start": 201.6,
+        "end": 203.4,
+        "text": "来去实现这样的一些效果"
+      },
+      {
+        "start": 203.4,
+        "end": 204.16,
+        "text": "这样的一些功能"
+      },
+      {
+        "start": 204.16,
+        "end": 205.6,
+        "text": "所以这个是我们为什么要去用MCP的"
+      },
+      {
+        "start": 205.6,
+        "end": 206.0,
+        "text": "一个原因"
+      },
+      {
+        "start": 206.0,
+        "end": 206.829,
+        "text": "就相当是什么呢"
+      },
+      {
+        "start": 206.829,
+        "end": 210.549,
+        "text": "呃我们通过MCP给AI一个操作的工具啊"
+      },
+      {
+        "start": 210.549,
+        "end": 212.6,
+        "text": "让它长出这一双手嘛对吧"
+      },
+      {
+        "start": 212.6,
+        "end": 216.06,
+        "text": "那么再回到这个broken里面来"
+      },
+      {
+        "start": 216.06,
+        "end": 217.5,
+        "text": "那么这里的标题写的是什么"
+      },
+      {
+        "start": 217.5,
+        "end": 219.52,
+        "text": "让机器检测先输一局"
+      },
+      {
+        "start": 219.52,
+        "end": 221.22,
+        "text": "也就是说我们这个GROUKEN呢"
+      },
+      {
+        "start": 221.22,
+        "end": 223.46,
+        "text": "它是能够去过掉市面上啊"
+      },
+      {
+        "start": 223.46,
+        "end": 224.86,
+        "text": "所有的这个机器检测的"
+      },
+      {
+        "start": 224.86,
+        "end": 226.88,
+        "text": "目前是没有遇到过不去的啊"
+      },
+      {
+        "start": 226.88,
+        "end": 227.84,
+        "text": "包括什么五秒盾啊"
+      },
+      {
+        "start": 227.84,
+        "end": 229.34,
+        "text": "谷歌的PC他都能去过掉"
+      },
+      {
+        "start": 229.34,
+        "end": 231.99,
+        "text": "还有个是呃这个基因检测"
+      },
+      {
+        "start": 231.99,
+        "end": 234.68,
+        "text": "它是无法去限制我们的这个浏览器的"
+      },
+      {
+        "start": 234.68,
+        "end": 236.56,
+        "text": "它是源码级的指纹浏览器"
+      },
+      {
+        "start": 236.56,
+        "end": 237.86,
+        "text": "并不是通过JS伪装"
+      },
+      {
+        "start": 237.86,
+        "end": 240.6,
+        "text": "也不是普通的这个谷歌谷歌浏览器"
+      },
+      {
+        "start": 240.6,
+        "end": 242.94,
+        "text": "我们再去接入本地的HMCP"
+      },
+      {
+        "start": 242.94,
+        "end": 245.5,
+        "text": "那么浏览器CDP网络脚本hook"
+      },
+      {
+        "start": 245.5,
+        "end": 247.54,
+        "text": "都完全由AI来调度了"
+      },
+      {
+        "start": 247.54,
+        "end": 250.349,
+        "text": "那也就是说我们通过AI连接MCP"
+      },
+      {
+        "start": 250.349,
+        "end": 251.869,
+        "text": "直接去操作这个浏览器"
+      },
+      {
+        "start": 251.869,
+        "end": 254.429,
+        "text": "那么这个时候再去逆向一些网站"
+      },
+      {
+        "start": 254.429,
+        "end": 257.63,
+        "text": "他真的是直接通过这一套指纹浏览器来去实现"
+      },
+      {
+        "start": 257.63,
+        "end": 261.37,
+        "text": "它整个的一个环境就合理的多"
+      },
+      {
+        "start": 261.37,
+        "end": 262.29,
+        "text": "这就是什么呢"
+      },
+      {
+        "start": 262.29,
+        "end": 264.85,
+        "text": "将真实的浏览器环境直接交给AI"
+      },
+      {
+        "start": 264.85,
+        "end": 266.61,
+        "text": "而不是去伪装环境"
+      },
+      {
+        "start": 268.51,
+        "end": 272.47,
+        "text": "配上一套能把所有页面拆开的MCP"
+      },
+      {
+        "start": 272.47,
+        "end": 275.19,
+        "text": "那他会有70一个源码级的C加加"
+      },
+      {
+        "start": 275.19,
+        "end": 277.43,
+        "text": "然后这里呢30加的这个检测站范围"
+      },
+      {
+        "start": 277.43,
+        "end": 279.43,
+        "text": "都是已经通过了的69套啊"
+      },
+      {
+        "start": 279.43,
+        "end": 282.92,
+        "text": "M4P工具CDP呢是原生的网络与调度证据"
+      },
+      {
+        "start": 282.92,
+        "end": 284.04,
+        "text": "它并不是伪装的像"
+      },
+      {
+        "start": 284.04,
+        "end": 285.92,
+        "text": "而是直接从浏览器内部去改"
+      },
+      {
+        "start": 285.92,
+        "end": 287.2,
+        "text": "比如说我们的这个canvas"
+      },
+      {
+        "start": 287.2,
+        "end": 290.37,
+        "text": "然后这个web gl a dio字体"
+      },
+      {
+        "start": 290.37,
+        "end": 293.81,
+        "text": "GPU屏幕map rtc和自动化信号等"
+      },
+      {
+        "start": 293.81,
+        "end": 295.56,
+        "text": "能力都能够去做到康贝尔原码层"
+      },
+      {
+        "start": 295.56,
+        "end": 297.04,
+        "text": "所以它检测就是有的网站"
+      },
+      {
+        "start": 297.04,
+        "end": 300.06,
+        "text": "它检测看到的不再是我们像之前去后"
+      },
+      {
+        "start": 300.06,
+        "end": 301.12,
+        "text": "事后注入的JS"
+      },
+      {
+        "start": 301.12,
+        "end": 302.88,
+        "text": "而是它直接在源码层浏览器"
+      },
+      {
+        "start": 302.88,
+        "end": 305.37,
+        "text": "它本身自带的一个这些功能的"
+      },
+      {
+        "start": 305.37,
+        "end": 307.57,
+        "text": "所以源源码及指纹原生自动化"
+      },
+      {
+        "start": 307.57,
+        "end": 309.75,
+        "text": "以及硬核检测目标"
+      },
+      {
+        "start": 310.44,
+        "end": 312.76,
+        "text": "一台浏览器呢是有69把工具的"
+      },
+      {
+        "start": 312.76,
+        "end": 313.68,
+        "text": "比如说我们的这个页面"
+      },
+      {
+        "start": 313.68,
+        "end": 314.4,
+        "text": "它只是入口嘛"
+      },
+      {
+        "start": 314.4,
+        "end": 316.46,
+        "text": "真正的火箭它是在做源码断点"
+      },
+      {
+        "start": 316.46,
+        "end": 317.5,
+        "text": "hook和运行的时候"
+      },
+      {
+        "start": 317.5,
+        "end": 318.66,
+        "text": "那么打开访问"
+      },
+      {
+        "start": 318.66,
+        "end": 319.38,
+        "text": "点击输入"
+      },
+      {
+        "start": 319.38,
+        "end": 322.51,
+        "text": "这个是页面的一些操作请求响应调用来源呢"
+      },
+      {
+        "start": 322.51,
+        "end": 323.15,
+        "text": "这个是network"
+      },
+      {
+        "start": 323.15,
+        "end": 323.99,
+        "text": "就是网络面板"
+      },
+      {
+        "start": 323.99,
+        "end": 324.99,
+        "text": "它里面的一些功能"
+      },
+      {
+        "start": 324.99,
+        "end": 327.67,
+        "text": "那么原版呢就是通过去查看source面板啊"
+      },
+      {
+        "start": 327.67,
+        "end": 329.77,
+        "text": "去看它里面的一些源代码呃"
+      },
+      {
+        "start": 329.77,
+        "end": 331.49,
+        "text": "第八个呢比如说调断点"
+      },
+      {
+        "start": 331.49,
+        "end": 332.33,
+        "text": "调用栈变量"
+      },
+      {
+        "start": 332.33,
+        "end": 333.21,
+        "text": "它是可以去插装"
+      },
+      {
+        "start": 333.21,
+        "end": 334.61,
+        "text": "可以去下断点"
+      },
+      {
+        "start": 334.61,
+        "end": 336.21,
+        "text": "可以去帮你去跟占的"
+      },
+      {
+        "start": 336.21,
+        "end": 339.15,
+        "text": "这个是已经可以通过啊AI联动MCP来去实现的"
+      },
+      {
+        "start": 339.15,
+        "end": 340.81,
+        "text": "hook呢是可以去自写hook来"
+      },
+      {
+        "start": 340.81,
+        "end": 344.45,
+        "text": "去hook到对应啊的那个加密点生成位置"
+      },
+      {
+        "start": 344.45,
+        "end": 346.43,
+        "text": "包括cookie w s是"
+      },
+      {
+        "start": 346.43,
+        "end": 347.49,
+        "text": "还有就是WSM啊"
+      },
+      {
+        "start": 347.49,
+        "end": 351.28,
+        "text": "这个WSM离线验证都是能够去做到的"
+      },
+      {
+        "start": 351.28,
+        "end": 354.2,
+        "text": "比如说我们想要去给AI加这样的MCP"
+      },
+      {
+        "start": 354.2,
+        "end": 356.18,
+        "text": "你就要先有一个AI的编程工具"
+      },
+      {
+        "start": 356.18,
+        "end": 358.0,
+        "text": "就是AI id在它的配置文件当中呢"
+      },
+      {
+        "start": 358.0,
+        "end": 359.46,
+        "text": "去写上这样的一个"
+      },
+      {
+        "start": 359.46,
+        "end": 361.57,
+        "text": "就这个就是那个呃"
+      },
+      {
+        "start": 361.57,
+        "end": 362.99,
+        "text": "首先你要有这样的工具啊"
+      },
+      {
+        "start": 362.99,
+        "end": 363.63,
+        "text": "就浏览器工具"
+      },
+      {
+        "start": 363.63,
+        "end": 366.549,
+        "text": "然后再去加上对应的一个reverse m cp"
+      },
+      {
+        "start": 366.549,
+        "end": 367.809,
+        "text": "这个就是GROUKER浏览器"
+      },
+      {
+        "start": 367.809,
+        "end": 369.749,
+        "text": "revers MCP专门做专门做立项的"
+      },
+      {
+        "start": 369.749,
+        "end": 371.309,
+        "text": "指定上这样的一个链接之后"
+      },
+      {
+        "start": 371.309,
+        "end": 374.369,
+        "text": "他就可以去通过AI来联动这样的一个broker了"
+      },
+      {
+        "start": 374.369,
+        "end": 377.46,
+        "text": "那这个时候我们就可以去将整个的一个立项"
+      },
+      {
+        "start": 377.46,
+        "end": 379.26,
+        "text": "全过程交给AI去实现"
+      },
+      {
+        "start": 379.26,
+        "end": 382.38,
+        "text": "就不再需要我们手动去做任何的调试分析"
+      },
+      {
+        "start": 382.38,
+        "end": 385.64,
+        "text": "以及加密断点的一个查找了啊"
+      },
+      {
+        "start": 385.64,
+        "end": 388.54,
+        "text": "所以这个MCP呢就一定是有必要去安装的"
+      },
+      {
+        "start": 388.54,
+        "end": 391.6,
+        "text": "而不是说而不是说这个可有可无的"
+      },
+      {
+        "start": 391.6,
+        "end": 392.96,
+        "text": "那么有了这样的一套MCP之后"
+      },
+      {
+        "start": 392.96,
+        "end": 397.26,
+        "text": "我们才能够将整个的网站全流程交给AH打通"
+      }
+    ],
+    "raw": null
+  },
+  "audio_meta": {
+    "file_path": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1Egud6jEFy.mp3",
+    "title": "【AI逆向神器】完全无限制的AI逆向魔改浏览器！5秒盾网页自动化检测自动通过！简直就是逆向必备！速存~",
+    "duration": 397.27,
+    "cover_url": "http://i2.hdslb.com/bfs/archive/d285dd21352b91730ad16e41af92af1dec345954.jpg",
+    "platform": "bilibili",
+    "video_id": "BV1Egud6jEFy",
+    "raw_info": {
+      "uploader": "爬虫教程",
+      "uploader_id": "1192690247",
+      "like_count": 206,
+      "tags": [
+        "人工智能",
+        "浏览器",
+        "js逆向",
+        "AI逆向",
+        "爬虫",
+        "神器",
+        "Python",
+        "Python教程",
+        "skills",
+        "爬虫教程"
+      ],
+      "thumbnail": "http://i2.hdslb.com/bfs/archive/d285dd21352b91730ad16e41af92af1dec345954.jpg",
+      "description": "本视频AI工具资料和我的AI完整学习路线/爬虫接单流程…都整理在这里哦👉https://www.bilibili.com/opus/788816979486048259",
+      "timestamp": 1786359332,
+      "view_count": 5869,
+      "comment_count": 178,
+      "id": "BV1Egud6jEFy",
+      "_old_archive_ids": [
+        "bilibili 117070826113416_part1"
+      ],
+      "title": "【AI逆向神器】完全无限制的AI逆向魔改浏览器！5秒盾网页自动化检测自动通过！简直就是逆向必备！速存~",
+      "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-us,en;q=0.5",
+        "Sec-Fetch-Mode": "navigate",
+        "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+      },
+      "formats": [
+        {
+          "url": "https://upos-sz-estgoss.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30216.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&uipk=5&platform=pc&trid=1b771af6973846caadaa6d1c7cc64abu&oi=1033216442&deadline=1787681987&og=cos&nbs=1&mid=0&gen=playurlv3&os=estgoss&upsig=91b248edb4b1f9f6df4db2143f64fc79&uparams=e,uipk,platform,trid,oi,deadline,og,nbs,mid,gen,os&bvc=vod&nettype=0&bw=66227&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 66.162,
+          "filesize": null,
+          "format_id": "30216",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 66.162,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 3285522,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30216 - audio only"
+        },
+        {
+          "url": "https://upos-sz-estgoss.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30232.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&os=estgoss&mid=0&deadline=1787681987&og=ali&uipk=5&platform=pc&trid=1b771af6973846caadaa6d1c7cc64abu&oi=1033216442&nbs=1&gen=playurlv3&upsig=0f5334fa4123d8a46f81c61742415dcf&uparams=e,os,mid,deadline,og,uipk,platform,trid,oi,nbs,gen&bvc=vod&nettype=0&bw=85341&lrs=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 85.263,
+          "filesize": null,
+          "format_id": "30232",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 85.263,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 4234054,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30232 - audio only"
+        },
+        {
+          "url": "https://upos-sz-mirror08c.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&og=hw&uipk=5&trid=1b771af6973846caadaa6d1c7cc64abu&mid=0&oi=1033216442&deadline=1787681987&nbs=1&gen=playurlv3&os=08cbv&platform=pc&upsig=eb6ebc4151a767c99491e07b80ae3e3e&uparams=e,og,uipk,trid,mid,oi,deadline,nbs,gen,os,platform&bvc=vod&nettype=0&bw=143406&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 143.288,
+          "filesize": null,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 143.288,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 7115502,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30280 - audio only"
+        },
+        {
+          "url": "https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30016.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&platform=pc&trid=1b771af6973846caadaa6d1c7cc64abu&deadline=1787681987&uipk=5&gen=playurlv3&os=hwbv&og=hw&mid=0&oi=1033216442&nbs=1&upsig=839825ed1292c0a90a0524e861ed287a&uparams=e,platform,trid,deadline,uipk,gen,os,og,mid,oi,nbs&bvc=vod&nettype=0&bw=63107&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 480,
+          "height": 360,
+          "vcodec": "avc1.640033",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 63.044,
+          "filesize": null,
+          "quality": 16,
+          "format_id": "30016",
+          "format": "360P 流畅",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 63.044,
+          "resolution": "480x360",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 3130686,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-mirrorzos.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-100022.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&uipk=5&mid=0&nbs=1&os=zosbv&og=hw&platform=pc&trid=1b771af6973846caadaa6d1c7cc64abu&oi=1033216442&deadline=1787681987&gen=playurlv3&upsig=79e6967627f0af12bf9d1d13f09512fa&uparams=e,uipk,mid,nbs,os,og,platform,trid,oi,deadline,gen&bvc=vod&nettype=0&bw=49516&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 480,
+          "height": 360,
+          "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 49.462,
+          "filesize": null,
+          "quality": 16,
+          "format_id": "100022",
+          "format": "360P 流畅",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 49.462,
+          "resolution": "480x360",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 2456221,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-mirrorbd.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30032.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&oi=1033216442&uipk=5&platform=pc&trid=1b771af6973846caadaa6d1c7cc64abu&og=hw&deadline=1787681987&nbs=1&mid=0&gen=playurlv3&os=bdbv&upsig=6271dda185ae42e7d48233f348cec399&uparams=e,oi,uipk,platform,trid,og,deadline,nbs,mid,gen,os&bvc=vod&nettype=0&bw=94359&lrs=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 640,
+          "height": 480,
+          "vcodec": "avc1.640033",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 94.276,
+          "filesize": null,
+          "quality": 32,
+          "format_id": "30032",
+          "format": "480P 标清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 94.276,
+          "resolution": "640x480",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 4681628,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-estgoss.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-100023.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&oi=1033216442&og=ali&uipk=5&trid=1b771af6973846caadaa6d1c7cc64abu&deadline=1787681987&gen=playurlv3&os=estgoss&nbs=1&platform=pc&mid=0&upsig=ea57e5ddc37326004a767a8f2e85a5de&uparams=e,oi,og,uipk,trid,deadline,gen,os,nbs,platform,mid&bvc=vod&nettype=0&bw=69472&lrs=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 640,
+          "height": 480,
+          "vcodec": "av01.0.08M.08.0.110.01.01.01.0",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 69.405,
+          "filesize": null,
+          "quality": 32,
+          "format_id": "100023",
+          "format": "480P 标清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 69.405,
+          "resolution": "640x480",
+          "aspect_ratio": 1.33,
+          "filesize_approx": 3446565,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        }
+      ],
+      "duration": 397.27,
+      "chapters": null,
+      "subtitles": {},
+      "webpage_url": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "original_url": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "webpage_url_basename": "BV1Egud6jEFy",
+      "webpage_url_domain": "bilibili.com",
+      "extractor": "BiliBili",
+      "extractor_key": "BiliBili",
+      "playlist": null,
+      "playlist_index": null,
+      "thumbnails": [
+        {
+          "url": "http://i2.hdslb.com/bfs/archive/d285dd21352b91730ad16e41af92af1dec345954.jpg",
+          "id": "0"
+        }
+      ],
+      "display_id": "BV1Egud6jEFy",
+      "fulltitle": "【AI逆向神器】完全无限制的AI逆向魔改浏览器！5秒盾网页自动化检测自动通过！简直就是逆向必备！速存~",
+      "duration_string": "6:37",
+      "upload_date": "20260810",
+      "release_year": null,
+      "requested_subtitles": null,
+      "_has_drm": null,
+      "epoch": 1787674788,
+      "requested_downloads": [
+        {
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1Egud6jEFy/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "url": "https://upos-sz-mirror08c.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&og=hw&uipk=5&trid=1b771af6973846caadaa6d1c7cc64abu&mid=0&oi=1033216442&deadline=1787681987&nbs=1&gen=playurlv3&os=08cbv&platform=pc&upsig=eb6ebc4151a767c99491e07b80ae3e3e&uparams=e,og,uipk,trid,mid,oi,deadline,nbs,gen,os,platform&bvc=vod&nettype=0&bw=143406&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+          "ext": "mp3",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 143.288,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 143.288,
+          "resolution": "audio only",
+          "filesize_approx": 7115502,
+          "format": "30280 - audio only",
+          "_filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1Egud6jEFy.m4a",
+          "filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1Egud6jEFy.m4a",
+          "__postprocessors": [],
+          "__real_download": true,
+          "__finaldir": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data",
+          "filepath": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1Egud6jEFy.mp3",
+          "__write_download_archive": true
+        }
+      ],
+      "url": "https://upos-sz-mirror08c.bilivideo.com/upgcxcode/97/81/40780958197/40780958197-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&og=hw&uipk=5&trid=1b771af6973846caadaa6d1c7cc64abu&mid=0&oi=1033216442&deadline=1787681987&nbs=1&gen=playurlv3&os=08cbv&platform=pc&upsig=eb6ebc4151a767c99491e07b80ae3e3e&uparams=e,og,uipk,trid,mid,oi,deadline,nbs,gen,os,platform&bvc=vod&nettype=0&bw=143406&lrs=0&build=0&dl=0&f=u_0_0&qn_dyeid=316ee0b1f545b24900eb6bf96a8dc0a3&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&orderid=0,3",
+      "ext": "m4a",
+      "acodec": "mp4a.40.2",
+      "vcodec": "none",
+      "tbr": 143.288,
+      "filesize": null,
+      "format_id": "30280",
+      "protocol": "https",
+      "audio_ext": "m4a",
+      "video_ext": "none",
+      "vbr": 0,
+      "abr": 143.288,
+      "resolution": "audio only",
+      "aspect_ratio": null,
+      "filesize_approx": 7115502,
+      "format": "30280 - audio only"
+    },
+    "video_path": null
+  }
+}

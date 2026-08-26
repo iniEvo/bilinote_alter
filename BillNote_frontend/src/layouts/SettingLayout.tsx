@@ -17,7 +17,7 @@ const SettingLayout = ({ Menu }: ISettingLayoutProps) => {
     <div
       className="h-full w-full"
       style={{
-        backgroundColor: 'var(--color-muted)',
+        backgroundColor: '#f6f8fd',
       }}
     >
       <div className="flex flex-1">
@@ -34,9 +34,13 @@ const SettingLayout = ({ Menu }: ISettingLayoutProps) => {
             <div>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Link to={'/'}>
-                      <SlidersHorizontal className="text-muted-foreground hover:text-primary cursor-pointer" />
+                  <TooltipTrigger asChild>
+                    <Link
+                      to={'/'}
+                      aria-label="返回首页"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-[color] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      <SlidersHorizontal aria-hidden="true" />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent>

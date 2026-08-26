@@ -67,7 +67,8 @@ const History = () => {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               type="text"
-              placeholder="搜索笔记标题..."
+              placeholder="搜索笔记标题…"
+              aria-label="搜索笔记标题"
               value={historySearch}
               onChange={event => setHistorySearch(event.target.value)}
               className="h-9 min-w-0 rounded-xl border-white bg-white pl-9 text-sm shadow-sm sm:h-10"
@@ -91,10 +92,10 @@ const History = () => {
 
       <Tabs defaultValue="single" className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <TabsList className="grid w-full shrink-0 grid-cols-2 rounded-2xl bg-slate-100/80 p-1">
-          <TabsTrigger value="single" className="rounded-xl text-xs sm:text-sm">
+          <TabsTrigger value="single" className="rounded-xl text-xs [font-variant-numeric:tabular-nums] sm:text-sm">
             单个任务 ({singleTaskCount})
           </TabsTrigger>
-          <TabsTrigger value="batch" className="rounded-xl text-xs sm:text-sm">
+          <TabsTrigger value="batch" className="rounded-xl text-xs [font-variant-numeric:tabular-nums] sm:text-sm">
             批次任务 ({batchGroups.length})
           </TabsTrigger>
         </TabsList>
