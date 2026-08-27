@@ -48,8 +48,14 @@ def replace_content_markers(markdown: str, video_id: str, platform: str = 'bilib
         total_seconds = int(mm) * 60 + int(ss)
 
         if platform == 'bilibili':
-            parsed_video_id = safe_video_id.replace("_p", "?p=")
-            url = f"https://www.bilibili.com/video/{parsed_video_id}&t={total_seconds}"
+            # 兼容两种 video_id 形态：
+            #   - 分 P：video_id 形如 "BV1xx_p2"（历史兼容），转为 ?p=2；
+            #   - 普通：video_id 形如 "BV1a8Te6KEYE"，时间戳参数需用 ?t=N（首参数必须是 ?）。
+            if "_p" in safe_video_id:
+                parsed_video_id = safe_video_id.replace("_p", "?p=")
+                url = f"https://www.bilibili.com/video/{parsed_video_id}&t={total_seconds}"
+            else:
+                url = f"https://www.bilibili.com/video/{safe_video_id}?t={total_seconds}"
         elif platform == 'youtube':
             url = f"https://www.youtube.com/watch?v={safe_video_id}&t={total_seconds}s"
         elif platform == 'douyin':

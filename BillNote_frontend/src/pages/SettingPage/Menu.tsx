@@ -5,6 +5,7 @@ import {
   Info,
   Activity,
   DatabaseBackup,
+  Wrench,
 } from 'lucide-react'
 import MenuBar, { IMenuProps } from '@/pages/SettingPage/components/menuBar.tsx'
 
@@ -35,6 +36,12 @@ const Menu = () => {
     //   icon: <SquareChevronRight />,
     //   path: '/settings/prompt',
     // },
+    {
+      id: 'manual',
+      name: '手动功能',
+      icon: <Wrench />,
+      path: '/settings/manual',
+    },
     {
       id: 'monitor',
       name: '部署监控',

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { IProvider, IResponse } from '@/types'
 import {
   addProvider,
+  deleteProviderById,
   getProviderById,
   getProviderList,
   updateProviderById,
@@ -17,6 +18,7 @@ interface ProviderStore {
   loadProviderById: (id: string) => Promise<void>
   addNewProvider: (provider: IProvider) => Promise<void>
   updateProvider: (provider: IProvider) => Promise<void>
+  deleteProvider: (id: string) => Promise<boolean>
 }
 
 export const useProviderStore = create<ProviderStore>((set, get) => ({
@@ -91,6 +93,16 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     }
   },
   getProviderList: () => get().provider,
+  deleteProvider: async (id: string) => {
+    try {
+      await deleteProviderById(id)
+      await get().fetchProviderList()
+      return true
+    } catch (error) {
+      console.error('Error deleting provider:', error)
+      return false
+    }
+  },
   fetchProviderList: async () => {
     try {
       const res  = await getProviderList()

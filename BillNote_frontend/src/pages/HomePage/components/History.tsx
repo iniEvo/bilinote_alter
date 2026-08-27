@@ -1,10 +1,7 @@
 import NoteHistory from '@/pages/HomePage/components/NoteHistory.tsx'
 import BatchTaskPanel from '@/pages/HomePage/components/BatchTaskPanel.tsx'
 import { useTaskStore } from '@/store/taskStore'
-import { fixNoteTitles } from '@/services/note.ts'
-import toast from 'react-hot-toast'
-import { Clock, Loader2, Search, Tag } from 'lucide-react'
-import { Button } from '@/components/ui/button.tsx'
+import { Clock, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input.tsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx'
 import { useMemo, useState } from 'react'
@@ -14,41 +11,8 @@ const History = () => {
   const setCurrentTask = useTaskStore(state => state.setCurrentTask)
   const batchGroups = useTaskStore(state => state.batchGroups)
   const tasks = useTaskStore(state => state.tasks)
-  const refreshHistoryList = useTaskStore(state => state.refreshHistoryList)
   const [historySearch, setHistorySearch] = useState('')
-  const [isFixingTitles, setIsFixingTitles] = useState(false)
   const singleTaskCount = useMemo(() => tasks.filter(task => !task.batchId).length, [tasks])
-
-  const handleFixTitles = async () => {
-    if (isFixingTitles)
-      return
-    setIsFixingTitles(true)
-    try {
-      // fetch_online=true：本地缓存缺失标题时，在线补取视频标题（不下载视频）
-      const result = await fixNoteTitles(true)
-      const fixedCount = result.fixed_count || 0
-      const failedCount = result.failed?.length || 0
-      if (fixedCount > 0) {
-        await refreshHistoryList()
-      }
-      if (failedCount > 0) {
-        const cookieIssue = result.failed.some(item => (item.reason || '').includes('Cookie'))
-        toast.error(
-          `已重命名 ${fixedCount} 条，${failedCount} 条失败${cookieIssue ? '（抖音 Cookie 已失效，请在设置中更新）' : ''}`,
-          { duration: 5000 },
-        )
-      } else if (fixedCount > 0) {
-        toast.success(`已将 ${fixedCount} 个笔记重命名为视频标题`)
-      } else {
-        toast('所有笔记均已按视频标题命名')
-      }
-    } catch (error) {
-      console.error('重命名笔记失败:', error)
-      toast.error('重命名失败，请稍后重试')
-    } finally {
-      setIsFixingTitles(false)
-    }
-  }
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col gap-3 overflow-hidden">
@@ -74,19 +38,6 @@ const History = () => {
               className="h-9 min-w-0 rounded-xl border-white bg-white pl-9 text-sm shadow-sm sm:h-10"
             />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isFixingTitles}
-            title="把未按视频标题命名的笔记统一重命名为视频标题"
-            onClick={handleFixTitles}
-            className="h-9 shrink-0 gap-1.5 rounded-xl border-white bg-white px-3 text-xs text-slate-600 shadow-sm hover:text-slate-900 sm:h-10 sm:text-sm"
-          >
-            {isFixingTitles
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <Tag className="h-4 w-4" />}
-            <span className="hidden sm:inline">{isFixingTitles ? '重命名中…' : '按标题重命名'}</span>
-          </Button>
         </div>
       </div>
 

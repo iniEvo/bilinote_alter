@@ -7,6 +7,9 @@ interface SystemState {
   // 后续如果有其他全局状态，可以继续加
   sidebarCollapsed: boolean // ✅ 侧边栏是否收起
   setSidebarCollapsed: (value: boolean) => void
+
+  showNoteCover: boolean // ✅ 是否展示笔记封面（历史列表缩略图 + 笔记页横幅）
+  setShowNoteCover: (value: boolean) => void
 }
 // 暂不启用
 export const useSystemStore = create<SystemState>()(
@@ -17,6 +20,9 @@ export const useSystemStore = create<SystemState>()(
 
       sidebarCollapsed: false,
       setSidebarCollapsed: value => set({ sidebarCollapsed: value }),
+
+      showNoteCover: true,
+      setShowNoteCover: value => set({ showNoteCover: value }),
     }),
     {
       name: 'system-store', // 本地存储的 key

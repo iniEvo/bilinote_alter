@@ -150,4 +150,7 @@ class ProviderService:
 
     @staticmethod
     def delete_provider(id: str):
+        # 级联清理：先删该供应商下的模型，再删供应商本身，避免孤儿数据
+        from app.db.model_dao import delete_models_by_provider
+        delete_models_by_provider(id)
         return delete_provider(id)

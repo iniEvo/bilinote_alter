@@ -27,6 +27,7 @@ const ProviderForm = lazy(() => import('@/components/Form/modelForm/Form.tsx'))
 const AboutPage = lazy(() => import('@/pages/SettingPage/about.tsx'))
 const Monitor = lazy(() => import('@/pages/SettingPage/Monitor.tsx'))
 const Artifacts = lazy(() => import('@/pages/SettingPage/Artifacts.tsx'))
+const ManualFeatures = lazy(() => import('@/pages/SettingPage/ManualFeatures.tsx'))
 const Downloader = lazy(() => import('@/pages/SettingPage/Downloader.tsx'))
 const DownloaderForm = lazy(() => import('@/components/Form/DownloaderForm/Form.tsx'))
 const TranscriberPage = lazy(() => import('@/pages/SettingPage/transcriber.tsx'))
@@ -84,6 +85,7 @@ function App() {
                 </Route>
                 <Route path="transcriber" element={<TranscriberPage />} />
                 <Route path="monitor" element={<Monitor />}></Route>
+                <Route path="manual" element={<ManualFeatures />}></Route>
                 <Route path="artifacts" element={<Artifacts />}></Route>
                 <Route path="about" element={<AboutPage />}></Route>
                 <Route path="*" element={<NotFoundPage />} />

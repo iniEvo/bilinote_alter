@@ -1,0 +1,439 @@
+{
+  "markdown": "> 来源链接：https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6\n\n# 5个项目冲上GitHub榜单，一个网关省掉95%的token\n\n## 目录\n- 1. exercises data set 完整健身数据集\n- 2. on the root 免费 AI 网关\n- 3. strikes 开源 AI 渗透测试工具\n- 4. herd Rust 终端工具\n- 5. super powers240000 Agent 技能框架\n- AI 总结\n\n## 1. exercises data set 完整健身数据集 [原片 @ 00:10](https://www.bilibili.com/video/BV1a8Te6KEYE?t=10)\n\n**教程笔记与关键细节：**\n- **项目定位**：一个完整的健身数据集，名为 exercises data set。\n- **数据规模**：包含 433 个健身动作（00:03 提及一次凑齐）。\n- **数据字段与丰富度（关键点）**：\n  - 每个动作都带有名称。\n  - 标注了目标肌群。\n  - 提供了器械说明。\n  - 附带缩略图和动画演示，可视化程度高。\n- **应用结论**：做健身 app 或者网站的人可以直接拿来使用，大幅降低数据采集与整理成本。\n\n## 2. on the root 免费 AI 网关 [原片 @ 00:23](https://www.bilibili.com/video/BV1a8Te6KEYE?t=23)\n\n**教程笔记与关键细节：**\n- **项目定位**：免费 AI 网关（00:25 明确），转录提及 \"on the root\" 为该项目指代。\n- **接入能力**：\n  - 作为统一入口，接入 231 家供应商（00:26 转录“街”意为“接”）。\n  - 其中 50 多家供应商免费（00:29）。\n- **使用方式**：将用户常用的编码助手都连接到大模型上（00:30）。\n- **核心技术结论**：采用压缩技术把 token 省下来，最多可节省 95%（00:32-00:34），这正是视频标题强调的核心亮点。\n\n## 3. strikes 开源 AI 渗透测试工具 [原片 @ 00:36](https://www.bilibili.com/video/BV1a8Te6KEYE?t=36)\n\n**教程笔记与关键细节：**\n- **项目定位**：strikes，一款开源的 AI 渗透测试工具。\n- **工作步骤与功能**：\n  - 自动扫描并找出应用里头的漏洞。\n  - 进一步提供修复方案（自动修复）。\n- **收益群体与建议**：强烈建议做开发和运维的人采用，能够省下手工排查漏洞的功夫（00:42），提升安全运维效率。\n\n## 4. herd Rust 终端工具 [原片 @ 00:46](https://www.bilibili.com/video/BV1a8Te6KEYE?t=46)\n\n**教程笔记与关键细节：**\n- **项目定位**：herd，面向开发者的终端工具。\n- **技术栈**：使用 Rust 编写（00:46）。\n- **核心功能操作**：\n  - 允许在命令行里同时运行多个 AIAJ（转录词，指代 AI 对话或 AI Agent 类任务）。\n  - 像多路复用器一样进行切换和管理。\n- **效率结论**：这种多路复用管理方式让干活的效率显著提升（00:52）。\n\n## 5. super powers240000 Agent 技能框架 [原片 @ 00:56](https://www.bilibili.com/video/BV1a8Te6KEYE?t=56)\n\n**教程笔记与关键细节：**\n- **项目定位**：super powers240000，视频压轴介绍的新大项目（01:00）。\n- **框架内容**：\n  - 提供一套能跑通的 agent 技能框架。\n  - 配套开发方法论。\n- **实施步骤与结论**：\n  - 给 AI 助手配上一堆现成技能（01:03）。\n  - 最终目标：让 AI 助手在软件开发里头真正干活（01:05），而非仅作辅助。\n\n## AI 总结\n\n近期 GitHub 榜单涌现多个高效开源项目：exercises data set 提供 433 个带演示的健身动作助力健身应用开发；on the root 作为免费 AI 网关接入 231 家供应商并利用压缩技术最多省下 95% 的 token；strikes 自动化完成漏洞挖掘与修复；herd 基于 Rust 实现终端多 AI 并行管理；super powers240000 则给出 agent 技能框架推动 AI 在软件工程中落地。这些工具覆盖了数据、成本、安全、效率与框架多个维度，值得开发者关注与使用。",
+  "transcript": {
+    "language": "ai-zh",
+    "full_text": "7月1日 GITHUB冲上来几个猛项目 有个数据 几把433个健身动作一次凑齐 还有个网关 让你用大模型省掉95%的token开头 这个叫exercises data set 一个完整健身数据集 433个动作 每个都带名称 目标肌群 器械说明 还有缩略图和动画演示 做健身app或者网站的人拿来就能用 接着on the root 一个免费AI网关 一个入口街231家供应商 50多家 免费 把你常用的编码助手都连到大模型上 还用压缩技术把token省下来 最多95% 还有strikes开源的AI渗透测试工具 把你应用里头的漏洞找出来再给你修复 建议给做开发和运维的人省下手工排查的功夫 再一个给开发者的herd rust写的终端工具 让你在命令行里同时跑多个AIAJ 像多路复用器一样切换管理干活的效率堆上去 压轴这个super powers240000新的大项目 一套能跑通的agent技能框架和开发方法论 给AI助手配上一堆现成技能 让他在软件开发里头真正干活 这几个你最想用哪个关注我 每天给你bug号 热门",
+    "segments": [
+      {
+        "start": 0.04,
+        "end": 0.76,
+        "text": "7月1日"
+      },
+      {
+        "start": 0.76,
+        "end": 2.65,
+        "text": "GITHUB冲上来几个猛项目"
+      },
+      {
+        "start": 2.65,
+        "end": 3.33,
+        "text": "有个数据"
+      },
+      {
+        "start": 3.33,
+        "end": 6.09,
+        "text": "几把433个健身动作一次凑齐"
+      },
+      {
+        "start": 6.09,
+        "end": 6.99,
+        "text": "还有个网关"
+      },
+      {
+        "start": 6.99,
+        "end": 10.76,
+        "text": "让你用大模型省掉95%的token开头"
+      },
+      {
+        "start": 10.76,
+        "end": 12.76,
+        "text": "这个叫exercises data set"
+      },
+      {
+        "start": 12.76,
+        "end": 14.52,
+        "text": "一个完整健身数据集"
+      },
+      {
+        "start": 14.52,
+        "end": 15.84,
+        "text": "433个动作"
+      },
+      {
+        "start": 15.84,
+        "end": 16.92,
+        "text": "每个都带名称"
+      },
+      {
+        "start": 16.92,
+        "end": 17.7,
+        "text": "目标肌群"
+      },
+      {
+        "start": 17.7,
+        "end": 18.7,
+        "text": "器械说明"
+      },
+      {
+        "start": 18.7,
+        "end": 20.68,
+        "text": "还有缩略图和动画演示"
+      },
+      {
+        "start": 20.68,
+        "end": 23.62,
+        "text": "做健身app或者网站的人拿来就能用"
+      },
+      {
+        "start": 23.62,
+        "end": 25.34,
+        "text": "接着on the root"
+      },
+      {
+        "start": 25.34,
+        "end": 26.96,
+        "text": "一个免费AI网关"
+      },
+      {
+        "start": 26.96,
+        "end": 29.18,
+        "text": "一个入口街231家供应商"
+      },
+      {
+        "start": 29.18,
+        "end": 29.78,
+        "text": "50多家"
+      },
+      {
+        "start": 29.78,
+        "end": 30.14,
+        "text": "免费"
+      },
+      {
+        "start": 30.14,
+        "end": 32.62,
+        "text": "把你常用的编码助手都连到大模型上"
+      },
+      {
+        "start": 32.62,
+        "end": 34.62,
+        "text": "还用压缩技术把token省下来"
+      },
+      {
+        "start": 34.62,
+        "end": 36.25,
+        "text": "最多95%"
+      },
+      {
+        "start": 36.25,
+        "end": 40.0,
+        "text": "还有strikes开源的AI渗透测试工具"
+      },
+      {
+        "start": 40.0,
+        "end": 42.62,
+        "text": "把你应用里头的漏洞找出来再给你修复"
+      },
+      {
+        "start": 42.62,
+        "end": 46.319,
+        "text": "建议给做开发和运维的人省下手工排查的功夫"
+      },
+      {
+        "start": 46.319,
+        "end": 50.03,
+        "text": "再一个给开发者的herd rust写的终端工具"
+      },
+      {
+        "start": 50.03,
+        "end": 52.73,
+        "text": "让你在命令行里同时跑多个AIAJ"
+      },
+      {
+        "start": 52.73,
+        "end": 56.519,
+        "text": "像多路复用器一样切换管理干活的效率堆上去"
+      },
+      {
+        "start": 56.519,
+        "end": 60.32,
+        "text": "压轴这个super powers240000新的大项目"
+      },
+      {
+        "start": 60.32,
+        "end": 63.38,
+        "text": "一套能跑通的agent技能框架和开发方法论"
+      },
+      {
+        "start": 63.38,
+        "end": 65.56,
+        "text": "给AI助手配上一堆现成技能"
+      },
+      {
+        "start": 65.56,
+        "end": 68.25,
+        "text": "让他在软件开发里头真正干活"
+      },
+      {
+        "start": 68.25,
+        "end": 71.45,
+        "text": "这几个你最想用哪个关注我"
+      },
+      {
+        "start": 71.45,
+        "end": 72.61,
+        "text": "每天给你bug号"
+      },
+      {
+        "start": 72.61,
+        "end": 73.26,
+        "text": "热门"
+      }
+    ],
+    "raw": null
+  },
+  "audio_meta": {
+    "file_path": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1a8Te6KEYE.mp3",
+    "title": "5个项目冲上GitHub榜单，一个网关省掉95%的token",
+    "duration": 73.6,
+    "cover_url": "http://i0.hdslb.com/bfs/archive/8b65a251a1f1b48afb09d69ec1e3c973281446d3.jpg",
+    "platform": "bilibili",
+    "video_id": "BV1a8Te6KEYE",
+    "raw_info": {
+      "uploader": "GitHub星探",
+      "uploader_id": "27906152",
+      "like_count": 80,
+      "tags": [
+        "发现《Feel The Power》",
+        "程序员",
+        "AI",
+        "视频教程",
+        "生活记录",
+        "校园",
+        "编程",
+        "互联网",
+        "记录",
+        "GitHub",
+        "AI工具"
+      ],
+      "thumbnail": "http://i0.hdslb.com/bfs/archive/8b65a251a1f1b48afb09d69ec1e3c973281446d3.jpg",
+      "description": "这期盘点7月1日GitHub上的5个项目。exercises-dataset收录433个健身动作每个带名称肌群器械和动画演示、OmniRoute免费AI网关一个入口接231家供应商50多家免费还用压缩技术省最多95%token、strix开源AI渗透测试工具找出应用漏洞再给修复建议、herdr用Rust写的终端工具让你在命令行同时跑多个AI agent、superpowers二十四万星的agent技能框架和开发方法论。覆盖健身数据、AI网关、安全测试、终端工具、agent框架五个方向。\n\n#GitHub热门 #程序员 #开源 #AI #科技 #开源项目 #效率工具 #AI工具 #开发者",
+      "timestamp": 1782874275,
+      "view_count": 2510,
+      "comment_count": 12,
+      "id": "BV1a8Te6KEYE",
+      "_old_archive_ids": [
+        "bilibili 116842437876629_part1"
+      ],
+      "title": "5个项目冲上GitHub榜单，一个网关省掉95%的token",
+      "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-us,en;q=0.5",
+        "Sec-Fetch-Mode": "navigate",
+        "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+      },
+      "formats": [
+        {
+          "url": "https://upos-sz-mirrorbd.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30216.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&platform=pc&oi=1033216442&nbs=1&og=hw&mid=0&deadline=1787759446&gen=playurlv3&os=bdbv&trid=01fb3efc9f364afcb8aace24fc0570au&uipk=5&upsig=f1878a6077bcb3ac1615d7ce66d0cee8&uparams=e,platform,oi,nbs,og,mid,deadline,gen,os,trid,uipk&bvc=vod&nettype=0&bw=66457&lrs=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 65.891,
+          "filesize": null,
+          "format_id": "30216",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 65.891,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 606197,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30216 - audio only"
+        },
+        {
+          "url": "https://upos-sz-estghw.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30232.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787759446&os=estghw&og=hw&oi=1033216442&trid=01fb3efc9f364afcb8aace24fc0570au&gen=playurlv3&uipk=5&platform=pc&nbs=1&mid=0&upsig=8de8260c92e35d4f811de06b80c522aa&uparams=e,deadline,os,og,oi,trid,gen,uipk,platform,nbs,mid&bvc=vod&nettype=0&bw=67044&lrs=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&dl=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 66.473,
+          "filesize": null,
+          "format_id": "30232",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 66.473,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 611551,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30232 - audio only"
+        },
+        {
+          "url": "https://upos-sz-estghw.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787759446&oi=1033216442&nbs=1&os=estghw&og=hw&uipk=5&platform=pc&gen=playurlv3&trid=01fb3efc9f364afcb8aace24fc0570au&mid=0&upsig=366e41eebbc57fc7327787a8c1dd4acf&uparams=e,deadline,oi,nbs,os,og,uipk,platform,gen,trid,mid&bvc=vod&nettype=0&bw=123068&lrs=0&dl=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "m4a",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 122.04,
+          "filesize": null,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 122.04,
+          "resolution": "audio only",
+          "aspect_ratio": null,
+          "filesize_approx": 1122768,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "format": "30280 - audio only"
+        },
+        {
+          "url": "https://upos-sz-estgoss.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30016.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&nbs=1&trid=01fb3efc9f364afcb8aace24fc0570au&mid=0&uipk=5&platform=pc&gen=playurlv3&os=estgoss&oi=1033216442&deadline=1787759446&og=ali&upsig=6949fc27f3df0a187980cf7a574fae10&uparams=e,nbs,trid,mid,uipk,platform,gen,os,oi,deadline,og&bvc=vod&nettype=0&bw=35407&lrs=0&dl=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 360,
+          "height": 640,
+          "vcodec": "avc1.640033",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 35.109,
+          "filesize": null,
+          "quality": 16,
+          "format_id": "30016",
+          "format": "360P 流畅",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 35.109,
+          "resolution": "360x640",
+          "aspect_ratio": 0.56,
+          "filesize_approx": 323002,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        },
+        {
+          "url": "https://upos-sz-mirrorzos.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30032.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&og=hw&mid=0&deadline=1787759446&uipk=5&oi=1033216442&os=zosbv&platform=pc&nbs=1&trid=01fb3efc9f364afcb8aace24fc0570au&gen=playurlv3&upsig=7fe44fefcedcd8883508a3e98b649407&uparams=e,og,mid,deadline,uipk,oi,os,platform,nbs,trid,gen&bvc=vod&nettype=0&bw=50104&lrs=0&dl=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp4",
+          "fps": 30.0,
+          "width": 480,
+          "height": 852,
+          "vcodec": "avc1.640033",
+          "acodec": "none",
+          "dynamic_range": "SDR",
+          "tbr": 49.693,
+          "filesize": null,
+          "quality": 32,
+          "format_id": "30032",
+          "format": "480P 标清",
+          "protocol": "https",
+          "video_ext": "mp4",
+          "audio_ext": "none",
+          "abr": 0,
+          "vbr": 49.693,
+          "resolution": "480x852",
+          "aspect_ratio": 0.56,
+          "filesize_approx": 457175,
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          }
+        }
+      ],
+      "duration": 73.6,
+      "chapters": null,
+      "subtitles": {},
+      "webpage_url": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "original_url": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6",
+      "webpage_url_basename": "BV1a8Te6KEYE",
+      "webpage_url_domain": "bilibili.com",
+      "extractor": "BiliBili",
+      "extractor_key": "BiliBili",
+      "playlist": null,
+      "playlist_index": null,
+      "thumbnails": [
+        {
+          "url": "http://i0.hdslb.com/bfs/archive/8b65a251a1f1b48afb09d69ec1e3c973281446d3.jpg",
+          "id": "0"
+        }
+      ],
+      "display_id": "BV1a8Te6KEYE",
+      "fulltitle": "5个项目冲上GitHub榜单，一个网关省掉95%的token",
+      "duration_string": "1:13",
+      "upload_date": "20260701",
+      "release_year": null,
+      "requested_subtitles": null,
+      "_has_drm": null,
+      "epoch": 1787752247,
+      "requested_downloads": [
+        {
+          "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+            "Referer": "https://www.bilibili.com/video/BV1a8Te6KEYE/?spm_id_from=333.1387.favlist.content.click&vd_source=ab82ab7e4025ab3831805c1b837a41a6"
+          },
+          "url": "https://upos-sz-estghw.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787759446&oi=1033216442&nbs=1&os=estghw&og=hw&uipk=5&platform=pc&gen=playurlv3&trid=01fb3efc9f364afcb8aace24fc0570au&mid=0&upsig=366e41eebbc57fc7327787a8c1dd4acf&uparams=e,deadline,oi,nbs,os,og,uipk,platform,gen,trid,mid&bvc=vod&nettype=0&bw=123068&lrs=0&dl=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+          "ext": "mp3",
+          "acodec": "mp4a.40.2",
+          "vcodec": "none",
+          "tbr": 122.04,
+          "format_id": "30280",
+          "protocol": "https",
+          "audio_ext": "m4a",
+          "video_ext": "none",
+          "vbr": 0,
+          "abr": 122.04,
+          "resolution": "audio only",
+          "filesize_approx": 1122768,
+          "format": "30280 - audio only",
+          "_filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1a8Te6KEYE.m4a",
+          "filename": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1a8Te6KEYE.m4a",
+          "__postprocessors": [],
+          "__real_download": true,
+          "__finaldir": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data",
+          "filepath": "/Users/jiuyue/Documents/project/BiliNote/backend/data/data/BV1a8Te6KEYE.mp3",
+          "__write_download_archive": true
+        }
+      ],
+      "url": "https://upos-sz-estghw.bilivideo.com/upgcxcode/98/11/39548421198/39548421198-1-30280.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&deadline=1787759446&oi=1033216442&nbs=1&os=estghw&og=hw&uipk=5&platform=pc&gen=playurlv3&trid=01fb3efc9f364afcb8aace24fc0570au&mid=0&upsig=366e41eebbc57fc7327787a8c1dd4acf&uparams=e,deadline,oi,nbs,os,og,uipk,platform,gen,trid,mid&bvc=vod&nettype=0&bw=123068&lrs=0&dl=0&f=u_0_0&qn_dyeid=09eabae43c60001400b6f5c16a8eef36&agrr=0&buvid=8AC247E4-F305-C856-BFFD-AEB3C3BDFE2884208infoc&build=0&orderid=0,3",
+      "ext": "m4a",
+      "acodec": "mp4a.40.2",
+      "vcodec": "none",
+      "tbr": 122.04,
+      "filesize": null,
+      "format_id": "30280",
+      "protocol": "https",
+      "audio_ext": "m4a",
+      "video_ext": "none",
+      "vbr": 0,
+      "abr": 122.04,
+      "resolution": "audio only",
+      "aspect_ratio": null,
+      "filesize_approx": 1122768,
+      "format": "30280 - audio only"
+    },
+    "video_path": null
+  }
+}

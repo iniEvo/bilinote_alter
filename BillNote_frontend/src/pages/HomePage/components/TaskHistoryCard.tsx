@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/utils.ts'
 import type { Task } from '@/store/taskStore'
+import { useSystemStore } from '@/store/configStore'
 
 interface TaskHistoryCardProps {
   task: Task
@@ -45,6 +46,7 @@ const statusClassName = (status: string) => {
 }
 
 const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHistoryCardProps) => {
+  const showCover = useSystemStore(state => state.showNoteCover)
   const baseURL = (String(import.meta.env.VITE_API_BASE_URL || 'api')).replace(/\/$/, '')
   const status = String(task.status || '').toUpperCase()
   const title = task.audioMeta.title || task.sourceUrl || task.formData.video_url || '未命名任务'
@@ -77,19 +79,21 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
       )}
     >
       <div className="flex min-w-0 items-start gap-2.5">
-        <img
-          data-fallback={coverSrc === '/placeholder.png' ? 'true' : undefined}
-          src={coverSrc}
-          alt="封面"
-          loading="lazy"
-          className="h-12 w-14 shrink-0 rounded-xl bg-slate-100 object-cover shadow-sm"
-          onError={(event) => {
-            if (event.currentTarget.dataset.fallback === 'true')
-              return
-            event.currentTarget.dataset.fallback = 'true'
-            event.currentTarget.src = '/placeholder.png'
-          }}
-        />
+        {showCover && (
+          <img
+            data-fallback={coverSrc === '/placeholder.png' ? 'true' : undefined}
+            src={coverSrc}
+            alt="封面"
+            loading="lazy"
+            className="h-12 w-14 shrink-0 rounded-xl bg-slate-100 object-cover shadow-sm"
+            onError={(event) => {
+              if (event.currentTarget.dataset.fallback === 'true')
+                return
+              event.currentTarget.dataset.fallback = 'true'
+              event.currentTarget.src = '/placeholder.png'
+            }}
+          />
+        )}
 
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-start justify-between gap-2">

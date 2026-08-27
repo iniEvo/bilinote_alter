@@ -19,6 +19,10 @@ export const addProvider = async (data: any, opts?: CallOpts) => {
   return await request.post('/add_provider', data, cfg(opts))
 }
 
+export const deleteProviderById = async (id: string) => {
+  return await request.post('/delete_provider', { id })
+}
+
 export const testConnection = async (data: any, opts?: CallOpts) => {
   // 连通性测试要等后端真实发一条 chat completion，慢网关（如实测的 infer ai）
   // 单次响应可达 13~15s，全局默认 10s 超时会在后端成功前掐断，
