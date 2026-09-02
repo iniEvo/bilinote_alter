@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import asynccontextmanager
 
@@ -70,6 +71,33 @@ async def lifespan(app: FastAPI):
             logger.info(f"           已应用全局代理到环境变量: {_proxy}")
 
         logger.info("[startup 5/5] 启动完成，等待请求")
+
+        logger.info("[startup 6/6] 恢复卡住的中间状态任务")
+        try:
+            from app.utils.output_paths import JSON_OUTPUT_DIR
+            from app.enmus.task_status_enums import TaskStatus
+            import tempfile
+            json_dir = JSON_OUTPUT_DIR
+            stuck_statuses = {TaskStatus.TRANSCRIBING.value, TaskStatus.SUMMARIZING.value, TaskStatus.FORMATTING.value, TaskStatus.SAVING.value}
+            recovered = 0
+            for p in json_dir.glob("*.status.json"):
+                try:
+                    raw = p.read_text(encoding="utf-8")
+                    st = json.loads(raw).get("status", "")
+                except Exception:
+                    continue
+                if st in stuck_statuses:
+                    task_id = p.name.replace(".status.json", "")
+                    # 重置为 PENDING，前端轮询时会重新触发
+                    new_data = {"status": TaskStatus.FAILED.value, "message": f"后端重启时任务被中断，请点击重试 (原状态: {st})"}
+                    tmp = p.with_suffix(".tmp")
+                    tmp.write_text(json.dumps(new_data, ensure_ascii=False, indent=2), encoding="utf-8")
+                    tmp.replace(p)
+                    recovered += 1
+            if recovered:
+                logger.info(f"  共 {recovered} 个卡住任务已重置为 PENDING")
+        except Exception as _e:
+            logger.warning(f"  恢复卡住任务失败: {_e}")
     except Exception:
         logger.exception("[startup FAILED] 后端启动期异常，详见堆栈；容器会退出并由 restart 策略决定是否重试")
         raise

@@ -343,3 +343,7 @@ vector_db/
 
 # 临时目录
 .tmp/
+
+# 运行时任务产物（JSON 结果、状态、checkpoint）
+backend/json_results/
+backend/.venv*/

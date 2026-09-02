@@ -1,4 +1,4 @@
 [tools]
 node = "22"
 "npm:pnpm" = "9.7.1"
-python = "3.13.12"
+python = "3.12.13"

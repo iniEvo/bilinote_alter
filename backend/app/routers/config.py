@@ -474,6 +474,49 @@ async def sys_check():
     return R.success()
 
 
+# ---- 生成物输出目录配置（Markdown 导出副本的落盘位置）----
+
+class OutputConfigRequest(BaseModel):
+    markdown_output_dir: Optional[str] = None
+
+
+@router.get("/output_config")
+def get_output_config():
+    """返回 Markdown 输出目录配置：当前配置值 + 实际生效的绝对路径。
+
+    effective_markdown_dir 是当前真正落盘的目录；配置为空时回退到默认目录。
+    """
+    from app.services.output_config_manager import OutputConfigManager
+    from app.utils.output_paths import get_note_output_dir
+
+    mgr = OutputConfigManager()
+    cfg = mgr.get_config()
+    return R.success(data={
+        **cfg,
+        "effective_markdown_dir": str(get_note_output_dir()),
+    })
+
+
+@router.post("/output_config")
+def update_output_config(data: OutputConfigRequest):
+    """更新 Markdown 输出目录配置，对新任务立即生效（无需重启后端）。
+
+    markdown_output_dir 传空字符串 / null 表示恢复默认目录。
+    """
+    from app.services.output_config_manager import OutputConfigManager
+    from app.utils.output_paths import get_note_output_dir
+
+    mgr = OutputConfigManager()
+    try:
+        cfg = mgr.update_config(data.markdown_output_dir)
+    except ValueError as exc:
+        return R.error(msg=str(exc), code=400)
+    return R.success(data={
+        **cfg,
+        "effective_markdown_dir": str(get_note_output_dir()),
+    }, msg="输出目录已更新")
+
+
 @router.get("/deploy_status")
 async def deploy_status():
     """返回部署监控所需的所有状态信息。

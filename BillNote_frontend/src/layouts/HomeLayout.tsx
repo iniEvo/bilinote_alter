@@ -9,7 +9,6 @@ import {
 
 import { Link } from 'react-router-dom'
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from '@/components/ui/resizable'
-import { ScrollArea } from '@/components/ui/scroll-area.tsx'
 import type { ImperativePanelHandle } from 'react-resizable-panels'
 import logo from '@/assets/icon.svg'
 
@@ -110,9 +109,9 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                   </div>
                 </div>
               </header>
-              <ScrollArea className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-y-auto">
                 <div className="p-3 md:p-4">{NoteForm}</div>
-              </ScrollArea>
+              </div>
             </aside>
           </ResizablePanel>
 

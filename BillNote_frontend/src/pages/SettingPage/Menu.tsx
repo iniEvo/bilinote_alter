@@ -5,7 +5,9 @@ import {
   Info,
   Activity,
   DatabaseBackup,
+  FolderOutput,
   Wrench,
+  FileStack,
 } from 'lucide-react'
 import MenuBar, { IMenuProps } from '@/pages/SettingPage/components/menuBar.tsx'
 
@@ -29,6 +31,12 @@ const Menu = () => {
       icon: <HardDriveDownload />,
       path: '/settings/download',
     },
+    {
+      id: 'output',
+      name: '存储位置',
+      icon: <FolderOutput />,
+      path: '/settings/output',
+    },
     // //其他配置
     // {
     //   id: 'prompt',
@@ -36,6 +44,12 @@ const Menu = () => {
     //   icon: <SquareChevronRight />,
     //   path: '/settings/prompt',
     // },
+    {
+      id: 'batch',
+      name: '批量任务',
+      icon: <FileStack />,
+      path: '/settings/batch',
+    },
     {
       id: 'manual',
       name: '手动功能',

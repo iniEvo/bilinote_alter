@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Ban,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Layers3,
   Loader2,
-  Pause,
-  RefreshCw,
+  Pencil,
+  Check,
+  X,
   Trash,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/button.tsx'
 import {
@@ -22,15 +23,8 @@ import {
 } from '@/components/ui/dialog.tsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils.ts'
-import { createHistoryTask, HISTORY_PAGE_SIZE, useTaskStore, type BatchControlState, type Task } from '@/store/taskStore'
-import { useModelStore } from '@/store/modelStore'
+import { createHistoryTask, HISTORY_PAGE_SIZE, useTaskStore, type Task } from '@/store/taskStore'
 import TaskHistoryCard from '@/pages/HomePage/components/TaskHistoryCard.tsx'
-
-const FILTERS = [
-  { key: 'all', label: '全部', shortLabel: '全' },
-  { key: 'success', label: '成功', shortLabel: '成' },
-  { key: 'failed', label: '失败', shortLabel: '失' },
-] as const
 
 const BATCH_GROUP_PAGE_SIZE = 5
 
@@ -40,35 +34,14 @@ interface BatchTaskPanelProps {
   searchValue?: string
 }
 
-const getDisplayControlState = (state: BatchControlState | null | undefined, pending: number): BatchControlState => {
-  if (state)
-    return state
-  return pending > 0 ? 'RUNNING' : 'COMPLETED'
-}
-
-const getControlStateLabel = (state: BatchControlState) => {
-  if (state === 'PAUSED')
-    return '已暂停'
-  if (state === 'CANCELED')
-    return '已取消'
-  if (state === 'COMPLETED')
-    return '已完成'
-  return '进行中'
-}
-
 const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPanelProps) => {
-  const batchGroups = useTaskStore(state => state.batchGroups)
+  const batchGroups = useTaskStore(state => Array.isArray(state.batchGroups) ? state.batchGroups : [])
   const tasks = useTaskStore(state => state.tasks)
   const retryTask = useTaskStore(state => state.retryTask)
   const getBatchItems = useTaskStore(state => state.getBatchItems)
-  const setBatchFilter = useTaskStore(state => state.setBatchFilter)
-  const retryFailedBatchTasks = useTaskStore(state => state.retryFailedBatchTasks)
-  const clearFailedBatchTasks = useTaskStore(state => state.clearFailedBatchTasks)
-  const pauseBatchGroup = useTaskStore(state => state.pauseBatchGroup)
-  const resumeBatchGroup = useTaskStore(state => state.resumeBatchGroup)
-  const cancelBatchGroup = useTaskStore(state => state.cancelBatchGroup)
   const removeBatchGroup = useTaskStore(state => state.removeBatchGroup)
   const removeTask = useTaskStore(state => state.removeTask)
+  const renameBatch = useTaskStore(state => state.renameBatch)
   const focusedBatchId = useTaskStore(state => state.focusedBatchId)
   const setFocusedBatch = useTaskStore(state => state.setFocusedBatch)
   const [expandedIds, setExpandedIds] = useState<string[]>([])
@@ -76,14 +49,9 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
   const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState<string | null>(null)
   const [isDeletingBatch, setIsDeletingBatch] = useState(false)
   const [isDeletingTask, setIsDeletingTask] = useState(false)
-  const [busyBatchAction, setBusyBatchAction] = useState<string | null>(null)
-  // 「重试失败项」的模型选择弹窗：targetBatchId 非空时打开
-  const [retryDialogBatchId, setRetryDialogBatchId] = useState<string | null>(null)
-  const [retryUseCurrentModel, setRetryUseCurrentModel] = useState(false)
-  const modelList = useModelStore(state => state.modelList)
-  const loadEnabledModels = useModelStore(state => state.loadEnabledModels)
-  /** 「用当前默认模型重试」使用的目标：当前启用列表的第一个模型 */
-  const defaultOverrideModel = modelList[0] || null
+  const [editingName, setEditingName] = useState(false)
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null)
+  const [nameInput, setNameInput] = useState('')
   const [groupPage, setGroupPage] = useState(1)
   const [taskPages, setTaskPages] = useState<Record<string, number>>({})
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -156,7 +124,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
     return null
 
   if (visibleGroups.length === 0)
-    return <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-3 py-6 text-center text-sm text-slate-500">当前搜索下暂无批量任务</div>
+    return <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-3 py-6 text-center text-sm text-slate-500">当前搜索下暂无项目</div>
 
   const totalGroupPages = Math.max(1, Math.ceil(visibleGroups.length / BATCH_GROUP_PAGE_SIZE))
   const currentGroupPage = Math.min(groupPage, totalGroupPages)
@@ -173,11 +141,11 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除这条批次任务？</DialogTitle>
+            <DialogTitle>删除这条笔记？</DialogTitle>
             <DialogDescription>
               {pendingDeleteTaskLabel
                 ? `将删除《${pendingDeleteTaskLabel}》，该操作不可撤销。`
-                : '将删除这条批次任务，该操作不可撤销。'}
+                : '将删除这条笔记，该操作不可撤销。'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -212,11 +180,11 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>移出整个批次？</DialogTitle>
+            <DialogTitle>移出整个项目？</DialogTitle>
             <DialogDescription>
               {pendingDeleteBatch
-                ? `将把批次 ${pendingDeleteBatch.name} 下的 ${pendingDeleteBatch.total} 条任务移出批次视图，但会保留已生成的笔记内容。`
-                : '将把该批次下的全部任务移出批次视图，但会保留已生成的笔记内容。'}
+                ? `将把项目 ${pendingDeleteBatch.name} 下的 ${pendingDeleteBatch.total} 条笔记移出项目视图，但会保留已生成的笔记内容。`
+                : '将把该项目下的全部笔记移出项目视图，但会保留已生成的笔记内容。'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -245,98 +213,17 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={!!retryDialogBatchId}
-        onOpenChange={(open) => {
-          if (!open && !busyBatchAction)
-            setRetryDialogBatchId(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>重试失败项：使用哪个模型？</DialogTitle>
-            <DialogDescription>
-              失败任务默认沿用各自提交时的模型配置。若原供应商已失效（如欠费），可改用当前默认模型重跑。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            {[
-              {
-                value: false,
-                title: '用原配置重试',
-                desc: '沿用每个任务提交时的供应商与模型（行为与之前一致）',
-              },
-              {
-                value: true,
-                title: `用当前默认模型重试${defaultOverrideModel ? `（${defaultOverrideModel.model_name}）` : ''}`,
-                desc: defaultOverrideModel
-                  ? '全部失败任务改用当前启用的第一个可用模型'
-                  : '当前没有可用模型，请先在设置中启用',
-              },
-            ].map(option => (
-              <button
-                key={String(option.value)}
-                type="button"
-                disabled={option.value && !defaultOverrideModel}
-                onClick={() => setRetryUseCurrentModel(option.value)}
-                className={cn(
-                  'w-full rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  retryUseCurrentModel === option.value
-                    ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
-                    : 'border-slate-200 bg-white hover:bg-slate-50/80',
-                )}
-              >
-                <div className="text-sm font-medium text-slate-900">{option.title}</div>
-                <div className="mt-0.5 text-xs text-slate-500">{option.desc}</div>
-              </button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!!busyBatchAction}
-              onClick={() => setRetryDialogBatchId(null)}
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              disabled={!!busyBatchAction || (retryUseCurrentModel && !defaultOverrideModel)}
-              onClick={async () => {
-                if (!retryDialogBatchId)
-                  return
-                const override = retryUseCurrentModel && defaultOverrideModel
-                  ? { provider_id: defaultOverrideModel.provider_id, model_name: defaultOverrideModel.model_name }
-                  : undefined
-                setBusyBatchAction(retryDialogBatchId)
-                try {
-                  await retryFailedBatchTasks(retryDialogBatchId, override)
-                  setRetryDialogBatchId(null)
-                } finally {
-                  setBusyBatchAction(null)
-                }
-              }}
-            >
-              {busyBatchAction === retryDialogBatchId && <Loader2 className="h-4 w-4 animate-spin" />}
-              确认重试
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <div className="min-w-0 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-900">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
             <Layers3 className="h-4 w-4" />
           </div>
-          <span>批量任务</span>
+          <span>项目</span>
         </div>
 
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1">
         {paginatedGroups.map(group => {
           const isExpanded = expandedIds.includes(group.id)
-          const progress = group.total > 0
-            ? Math.round(((group.success + group.failed + group.canceled) / group.total) * 100)
-            : 0
           const remoteItems = getBatchItems(group.id)
           const visibleTaskIds = new Set(group.taskIds)
           const items = (remoteItems.length > 0
@@ -358,20 +245,10 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
               return task.status === 'FAILED'
             return true
           })
-          const isBusy = busyBatchAction === group.id
-          const groupLabel = `批次 ${group.name}`
+          const groupLabel = group.name
           const totalTaskPages = Math.max(1, Math.ceil(visibleItems.length / HISTORY_PAGE_SIZE))
           const currentTaskPage = Math.min(taskPages[group.id] || 1, totalTaskPages)
           const paginatedItems = visibleItems.slice((currentTaskPage - 1) * HISTORY_PAGE_SIZE, currentTaskPage * HISTORY_PAGE_SIZE)
-          const groupSummary = [
-            `总数 ${group.total}`,
-            `成功 ${group.success}`,
-            `失败 ${group.failed}`,
-            `暂停 ${group.paused}`,
-            `取消 ${group.canceled}`,
-            `进行中 ${group.pending}`,
-          ]
-          const displayControlState = getDisplayControlState(group.controlState, group.pending)
 
           return (
             <div
@@ -413,10 +290,89 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                     </div>
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="flex min-w-0 items-start justify-between gap-2">
-                        <div className="line-clamp-2 break-all text-sm leading-5 text-slate-900">
-                          {groupLabel}
-                        </div>
-                        <TooltipProvider>
+                        {editingName && editingBatchId === group.id ? (
+                          <div className="flex min-w-0 flex-1 items-center gap-1">
+                            <input
+                              type="text"
+                              value={nameInput}
+                              onChange={e => setNameInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && nameInput.trim()) {
+                                  void renameBatch(group.id, nameInput.trim()).then(ok => {
+                                    if (ok) toast.success('重命名成功')
+                                    setEditingName(false)
+                                    setEditingBatchId(null)
+                                  })
+                                }
+                                if (e.key === 'Escape') {
+                                  setEditingName(false)
+                                  setEditingBatchId(null)
+                                }
+                              }}
+                              autoFocus
+                              className="min-w-0 flex-1 rounded-lg border border-blue-300 bg-white px-2 py-1 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 shadow-sm hover:bg-emerald-100"
+                              disabled={!nameInput.trim()}
+                              onClick={() => {
+                                if (!nameInput.trim()) return
+                                void renameBatch(group.id, nameInput.trim()).then(ok => {
+                                  if (ok) toast.success('重命名成功')
+                                  setEditingName(false)
+                                  setEditingBatchId(null)
+                                })
+                              }}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0 rounded-lg bg-slate-100 text-slate-500 shadow-sm hover:bg-slate-200"
+                              onClick={() => {
+                                setEditingName(false)
+                                setEditingBatchId(null)
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="line-clamp-2 break-all text-sm leading-5 text-slate-900">
+                            {groupLabel}
+                          </div>
+                        )}
+                        <div className="flex shrink-0 items-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 shrink-0 rounded-lg bg-white text-slate-500 shadow-sm hover:text-blue-600"
+                                  disabled={editingName}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setEditingName(true)
+                                    setEditingBatchId(group.id)
+                                    setNameInput(group.name)
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>重命名项目</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -436,167 +392,31 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>移出批次视图</p>
+                              <p>移出项目视图</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      </div>
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-500">
-                          {getControlStateLabel(displayControlState)}
-                        </span>
-                        <span className="text-[11px] font-medium text-slate-500">完成度 {progress}%</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  {isExpanded && (
-                    <>
-                      <div className="mt-3 flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
-                        <span>状态概览</span>
-                        <span className="text-[10px] text-slate-400">点击卡片可折叠</span>
-                      </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-2 sm:grid-cols-3">
-                        {groupSummary.map(item => (
-                          <div key={item} className="rounded-lg bg-white px-2 py-1.5 text-center text-[10px] font-medium text-slate-600 shadow-sm">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/80">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
 
               {isExpanded && (
-                <div className="mt-3 min-w-0 space-y-3.5 border-t border-slate-100 pt-3.5">
-                  <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-slate-50/65 p-2.5 sm:p-3">
-                    <div className="flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
-                      <span>筛选</span>
-                      <span className="text-[10px] text-slate-400">批次结果</span>
-                    </div>
-                    <div className="px-1 text-[10px] text-slate-400">当前筛选：{filter}</div>
-                    <div className={cn('min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]', 'grid grid-cols-3 gap-1')}>
-                      {FILTERS.map(option => (
-                        <Button
-                          key={option.key}
-                          type="button"
-                          size="sm"
-                          variant={filter === option.key ? 'default' : 'outline'}
-                          className={cn(
-                            'h-8 w-full min-w-0 rounded-lg border border-transparent px-2 text-xs transition-all duration-150',
-                            filter === option.key
-                              ? 'border-primary/30 bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_6px_14px_rgba(59,130,246,0.28)]'
-                              : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                          )}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setBatchFilter(group.id, option.key)
-                            setTaskPages(state => ({ ...state, [group.id]: 1 }))
-                          }}
-                        >
-                          <span className="truncate">{option.label}</span>
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
-                      <span>操作</span>
-                      <span className="text-[10px] text-slate-400">批次工具栏</span>
-                    </div>
-                    <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white/95 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                      <div className="grid min-w-[280px] grid-cols-4 gap-px rounded-lg bg-slate-200/80">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                        className="h-8 min-w-0 w-full max-w-full rounded-none border-0 px-1.5 text-[11px] shadow-none transition-colors bg-white hover:bg-slate-50 first:rounded-l-lg last:rounded-r-lg justify-center"
-                        disabled={isBusy || displayControlState === 'CANCELED' || displayControlState === 'COMPLETED'}
-                        onClick={async () => {
-                          setBusyBatchAction(group.id)
-                          try {
-                            if (displayControlState === 'PAUSED')
-                              await resumeBatchGroup(group.id)
-                            else
-                              await pauseBatchGroup(group.id)
-                          } finally {
-                            setBusyBatchAction(null)
-                          }
-                        }}
-                      >
-                        <Pause className="mr-1 h-3.5 w-3.5" />
-                        {displayControlState === 'PAUSED' ? '继续' : '暂停'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 min-w-0 w-full max-w-full rounded-none border-0 px-1.5 text-[11px] shadow-none transition-colors bg-white hover:bg-slate-50 first:rounded-l-lg last:rounded-r-lg justify-center"
-                        disabled={isBusy || group.failed === 0}
-                        onClick={() => {
-                          setRetryUseCurrentModel(false)
-                          setRetryDialogBatchId(group.id)
-                          loadEnabledModels()
-                        }}
-                      >
-                        <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                        重试失败项
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 min-w-0 w-full max-w-full rounded-none border-0 px-1.5 text-[11px] text-rose-600 shadow-none transition-colors bg-white hover:bg-rose-50/70 hover:text-rose-700 first:rounded-l-lg last:rounded-r-lg justify-center"
-                        disabled={isBusy || group.failed === 0}
-                        onClick={async () => {
-                          setBusyBatchAction(group.id)
-                          try {
-                            await clearFailedBatchTasks(group.id)
-                          } finally {
-                            setBusyBatchAction(null)
-                          }
-                        }}
-                      >
-                        <Trash className="mr-1 h-3.5 w-3.5" />
-                        清除
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 min-w-0 w-full max-w-full rounded-none border-0 px-1.5 text-[11px] shadow-none transition-colors bg-white hover:bg-slate-50 first:rounded-l-lg last:rounded-r-lg justify-center"
-                        disabled={isBusy || displayControlState === 'CANCELED' || displayControlState === 'COMPLETED'}
-                        onClick={async () => {
-                          setBusyBatchAction(group.id)
-                          try {
-                            await cancelBatchGroup(group.id)
-                          } finally {
-                            setBusyBatchAction(null)
-                          }
-                        }}
-                      >
-                        <Ban className="mr-1 h-3.5 w-3.5" />
-                        取消
-                      </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 rounded-2xl bg-white/70 p-2 pb-3">
-                    <div className="flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
-                      <span>全部子任务</span>
+                <div className="mt-3 flex min-h-0 min-w-0 flex-1 flex-col space-y-3.5 overflow-hidden border-t border-slate-100 pt-3.5">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl bg-white/70 p-2 pb-3">
+                    <div className="flex shrink-0 items-center justify-between px-1 text-[11px] font-medium text-slate-500">
+                      <span>全部笔记</span>
                       <span className="text-[10px] text-slate-400">共 {visibleItems.length} 条</span>
                     </div>
                     {visibleItems.length === 0 && (
                       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center text-sm text-slate-500">
-                        当前筛选下暂无任务
+                        当前筛选下暂无笔记
                       </div>
                     )}
 
+                    <div className="min-h-0 max-h-80 flex-1 space-y-2 overflow-y-auto pr-1">
                     {paginatedItems.map(task => (
                       <TaskHistoryCard
                         key={task.id}
@@ -607,9 +427,10 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                         onRetry={task.status === 'FAILED' ? retryTask : undefined}
                       />
                     ))}
+                    </div>
 
                     {visibleItems.length > 0 && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
+                      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
                         <span>
                           第 {currentTaskPage} / {totalTaskPages} 页
                         </span>
@@ -645,9 +466,10 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
             </div>
           )
         })}
+        </div>
 
         {visibleGroups.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
             <span>
               第 {currentGroupPage} / {totalGroupPages} 页
             </span>

@@ -15,6 +15,9 @@ from pydantic import BaseModel, field_validator
 
 from app.db.video_task_dao import (
     clear_batch_by_id,
+    rename_batch,
+    move_task_to_batch,
+    get_all_batches,
     delete_task_by_id,
     get_latest_task_record,
     get_task_record,
@@ -25,7 +28,7 @@ from app.db.video_task_dao import (
     update_task_request_payload,
     update_task_title,
 )
-from app.enmus.exception import NoteErrorEnum
+from app.enmus.exception import NoteErrorEnum, ProviderErrorEnum
 from app.enmus.note_enums import DownloadQuality
 from app.enmus.task_status_enums import TaskStatus
 from app.exceptions.note import NoteError
@@ -136,6 +139,8 @@ class VideoRequest(BaseModel):
     grid_size: Optional[list] = []
     prefetched_transcript: Optional[dict] = None
     force_regenerate: Optional[bool] = False
+    batch_id: Optional[str] = None
+    batch_name: Optional[str] = None
 
     @field_validator('video_url')
     def validate_supported_url(cls, v):
@@ -168,6 +173,8 @@ class BatchVideoRequest(BaseModel):
     force_regenerate: Optional[bool] = False
     duplicate_strategy: str = 'confirm'
     duplicate_confirm_urls: Optional[list[str]] = []
+    batch_id: Optional[str] = None
+    batch_name: Optional[str] = None
 
     @field_validator('video_urls')
     def validate_video_urls(cls, v: list[str]):
@@ -460,7 +467,7 @@ def _validate_model_override(provider_id: Optional[str], model_name: Optional[st
     """校验批次重试/续跑的模型覆盖参数；返回错误信息，None 表示通过。
 
     覆盖必须成对出现，且 (provider_id, model_name) 必须是已登记的可用组合，
-    否则重试只会再次失败。"""
+    否则重试只会再次失败。已关闭的供应商同样不允许作为覆盖目标。"""
     if not provider_id and not model_name:
         return None
     if bool(provider_id) != bool(model_name):
@@ -468,10 +475,41 @@ def _validate_model_override(provider_id: Optional[str], model_name: Optional[st
     from app.db.model_dao import get_model_by_provider_and_name
     from app.services.provider import ProviderService
 
-    if not ProviderService.get_provider_by_id(provider_id):
+    provider = ProviderService.get_provider_by_id(provider_id)
+    if not provider:
         return f'供应商不存在: {provider_id}'
+    if provider.get('enabled') == 0:
+        return f'供应商「{provider.get("name")}」已关闭，请选择其他已启用的供应商'
     if not get_model_by_provider_and_name(provider_id, model_name):
         return f'该供应商下不存在模型: {model_name}'
+    return None
+
+
+def _validate_provider_enabled(provider_id: Optional[str]):
+    """在正式入队前同步校验供应商是否启用；已关闭则直接返回带可用模型列表的错误，
+    让前端可以就地提示并引导用户选择新模型，避免任务跑到后台才失败。"""
+    from app.services.provider import ProviderService
+    from app.services.model import ModelService
+
+    if not provider_id:
+        return None
+    provider = ProviderService.get_provider_by_id(provider_id)
+    if provider and provider.get('enabled') == 0:
+        available_models = []
+        try:
+            available_models = ModelService.get_all_models()
+        except Exception as exc:
+            logger.warning(f'加载可用模型失败: {exc}')
+        return R.error(
+            msg=f"模型供应商「{provider.get('name')}」已关闭，请选择其他已启用的供应商",
+            code=ProviderErrorEnum.PROVIDER_DISABLED.code,
+            data={
+                'reason': 'provider_disabled',
+                'provider_id': provider_id,
+                'provider_name': provider.get('name'),
+                'available_models': available_models,
+            },
+        )
     return None
 
 
@@ -542,6 +580,15 @@ def _build_retry_request(
     missing_fields = [field for field in required_fields if not payload.get(field)]
     if missing_fields:
         return None, video_url, f"missing_fields:{','.join(missing_fields)}"
+
+    # 复用旧配置重试/续跑时，若绑定供应商已被关闭，不能静默沿用：标记 provider_disabled，
+    # 交由前端提示用户选择新模型后重试（override 覆盖的情况由 _validate_model_override 把关）。
+    _retry_provider_id = payload.get('provider_id')
+    if _retry_provider_id:
+        from app.services.provider import ProviderService
+        _retry_provider = ProviderService.get_provider_by_id(_retry_provider_id)
+        if _retry_provider and _retry_provider.get('enabled') == 0:
+            return None, video_url, f"provider_disabled:{_retry_provider.get('name') or _retry_provider_id}"
 
     # Retries should accept transcript-only tasks that intentionally omit video_url.
     if not video_url and not payload.get('prefetched_transcript'):
@@ -750,6 +797,41 @@ def detach_batch_tasks(data: BatchActionRequest):
         return R.error(msg=str(e))
 
 
+@router.post('/rename_batch')
+def rename_batch_endpoint(data: dict):
+    batch_id = data.get('batch_id', '').strip()
+    new_name = data.get('batch_name', '').strip()
+    if not batch_id:
+        return R.error(msg='batch_id 不能为空', code=400)
+    if not new_name:
+        return R.error(msg='新名称不能为空', code=400)
+    success = rename_batch(batch_id, new_name)
+    if not success:
+        return R.error(msg='项目不存在', code=404)
+    return R.success(msg='重命名成功')
+
+
+@router.post('/move_task_to_batch')
+def move_task_to_batch_endpoint(data: dict):
+    task_id = data.get('task_id', '').strip()
+    batch_id = data.get('batch_id', '').strip()
+    batch_name = data.get('batch_name', '').strip()
+    if not task_id:
+        return R.error(msg='task_id 不能为空', code=400)
+    if not batch_id or not batch_name:
+        return R.error(msg='batch_id 和 batch_name 不能为空', code=400)
+    success = move_task_to_batch(task_id, batch_id, batch_name)
+    if not success:
+        return R.error(msg='任务不存在', code=404)
+    return R.success(msg='已移动到项目')
+
+
+@router.get('/all_batches')
+def get_all_batches_endpoint():
+    batches = get_all_batches()
+    return R.success(data=batches)
+
+
 @router.post('/upload')
 async def upload(file: UploadFile = File(...)):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -776,9 +858,73 @@ def generate_note(data: VideoRequest, background_tasks: BackgroundTasks):
         duplicate_resp = _check_duplicate_response(data)
         if duplicate_resp:
             return duplicate_resp
-        return _enqueue_note_task(data, background_tasks)
+        # 同步拦截已关闭的供应商，立即给出可选择的可用模型，避免任务跑到后台才失败。
+        enabled_error = _validate_provider_enabled(data.provider_id)
+        if enabled_error:
+            return enabled_error
+        return _enqueue_note_task(
+            data,
+            background_tasks,
+            batch_id=data.batch_id or None,
+            batch_name=data.batch_name or None,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/batch_check_duplicates')
+def batch_check_duplicates(data: BatchVideoRequest):
+    """批量链接与历史笔记的预检：只对比不创建。
+
+    对每个链接：校验平台 -> 查历史重复 -> 返回 comparison 结果，
+    由前端展示后由用户二次确认，再调用 /generate_notes_batch 真正创建。
+    """
+    results = []
+    seen = set()
+    for url in data.video_urls:
+        url = str(url or '').strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+
+        validation_error = _validate_platform_video_id(url, data.platform)
+        if validation_error:
+            payload = json.loads(validation_error.body.decode('utf-8'))
+            results.append({
+                'video_url': url,
+                'valid': False,
+                'code': payload.get('code'),
+                'msg': payload.get('msg'),
+                'reason': (payload.get('data') or {}).get('reason'),
+                'duplicate_task': None,
+            })
+            continue
+
+        duplicate = _find_duplicate_task(
+            extract_video_id(url, data.platform),
+            url,
+            data.platform,
+        )
+        # 与 _check_duplicate_response 保持一致的判定：失败的且无结果的历史不视为重复
+        needs_confirmation = False
+        if duplicate:
+            status = duplicate.get('status')
+            result_exists = bool(duplicate.get('result_exists'))
+            if status in {TaskStatus.FAILED.value, TaskStatus.CANCELED.value} and not result_exists:
+                duplicate = None
+            else:
+                needs_confirmation = True
+
+        results.append({
+            'video_url': url,
+            'valid': True,
+            'code': 0,
+            'msg': '',
+            'reason': None,
+            'duplicate_task': duplicate,
+            'needs_confirmation': needs_confirmation,
+        })
+    return R.success({'results': results})
 
 
 @router.post('/generate_notes_batch')
@@ -788,8 +934,13 @@ def generate_notes_batch(data: BatchVideoRequest, background_tasks: BackgroundTa
         if readiness_error:
             return readiness_error
 
-        batch_id = str(uuid.uuid4())
-        batch_name = _make_batch_name()
+        # 同步拦截已关闭的供应商，立即给出可选择的可用模型，避免批量任务跑到后台才失败。
+        enabled_error = _validate_provider_enabled(data.provider_id)
+        if enabled_error:
+            return enabled_error
+
+        batch_id = data.batch_id or str(uuid.uuid4())
+        batch_name = data.batch_name or _make_batch_name()
         items = []
         confirmed_urls = set(data.duplicate_confirm_urls or [])
         confirmed_keys = {key for key in (_normalize_duplicate_key(url, data.platform) for url in confirmed_urls) if key}
@@ -1203,7 +1354,7 @@ def fix_note_titles(data: FixNoteTitlesRequest):
 
 
 @router.get('/history')
-def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True):
+def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True, batch_id: str | None = None):
     items = []
     target_offset = max(offset, 0)
     target_limit = max(limit, 1)
@@ -1211,7 +1362,7 @@ def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True)
     fetch_offset = 0
 
     while len(items) < target_offset + target_limit:
-        rows = list_recent_tasks(fetch_limit, offset=fetch_offset)
+        rows = list_recent_tasks(fetch_limit, offset=fetch_offset, batch_id=batch_id)
         if not rows:
             break
         fetch_offset += len(rows)

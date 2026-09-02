@@ -100,6 +100,9 @@ def chat(
     provider = ProviderService.get_provider_by_id(provider_id)
     if not provider:
         raise ValueError(f"未找到模型供应商: {provider_id}")
+    if provider.get('enabled') == 0:
+        provider_name = provider.get('name') or provider.get('id') or provider_id
+        raise ValueError(f"模型供应商「{provider_name}」已关闭，请选择其他已启用的供应商")
 
     config = ModelConfig(
         api_key=provider["api_key"],

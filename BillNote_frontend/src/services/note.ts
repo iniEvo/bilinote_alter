@@ -18,12 +18,26 @@ export interface GenerateNotePayload {
   screenshot?: boolean
   link?: boolean
   force_regenerate?: boolean
+  batch_id?: string
+  batch_name?: string
 }
 
 export interface GenerateBatchPayload extends Omit<GenerateNotePayload, 'video_url' | 'task_id'> {
   video_urls: string[]
   duplicate_strategy?: 'skip' | 'continue_all' | 'confirm'
   duplicate_confirm_urls?: string[]
+  batch_id?: string
+  batch_name?: string
+}
+
+export interface DuplicateCheckResult {
+  video_url: string
+  valid: boolean
+  code?: number
+  msg?: string
+  reason?: string | null
+  duplicate_task?: DuplicateTaskInfo | null
+  needs_confirmation?: boolean
 }
 
 const sanitizeBatchPayload = (data: GenerateBatchPayload): GenerateBatchPayload => {
@@ -135,6 +149,14 @@ export const generateNotesBatch = async (data: GenerateBatchPayload) => {
   }
 }
 
+export const checkBatchDuplicates = async (data: GenerateBatchPayload) => {
+  const payload = sanitizeBatchPayload(data)
+  const response = await request.post('/batch_check_duplicates', payload, { suppressToast: true }) as {
+    results?: DuplicateCheckResult[]
+  }
+  return response.results || []
+}
+
 export const getBatchStatus = async (batchId: string) => {
   return await request.get(`/batch_status/${batchId}`) as BatchStatusResponse
 }
@@ -226,7 +248,7 @@ export const fixNoteTitles = async (fetchOnline = false) => {
   return await request.post('/fix_note_titles', { fetch_online: fetchOnline }) as FixNoteTitlesResult
 }
 
-export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean }) => {
+export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean, batch_id?: string }) => {
   return await request.get('/history', { params })
 }
 
@@ -238,4 +260,16 @@ export const getHistoryTask = async (taskId: string, options: HistoryTaskOptions
   return await request.get(`/history/${taskId}`, {
     suppressToast: options.suppressToast === true,
   }) as BatchTaskItem
+}
+
+export const renameBatch = async (batchId: string, batchName: string) => {
+  return await request.post('/rename_batch', { batch_id: batchId, batch_name: batchName })
+}
+
+export const moveTaskToBatch = async (taskId: string, batchId: string, batchName: string) => {
+  return await request.post('/move_task_to_batch', { task_id: taskId, batch_id: batchId, batch_name: batchName })
+}
+
+export const getAllBatches = async () => {
+  return await request.get('/all_batches')
 }

@@ -8,6 +8,9 @@ def timeit(func):
         result = func(*args, **kwargs)
         end = time.perf_counter()
         duration = end - start
-        print(f"{func.__name__} executed in {duration:.4f} seconds")
+        # 用 logger 代替 print，避免 stdout BrokenPipeError
+        # 需延迟导入避免模块加载顺序问题
+        from app.utils.logger import get_logger
+        get_logger(func.__module__).info(f"{func.__name__} executed in {duration:.4f} seconds")
         return result
     return wrapper

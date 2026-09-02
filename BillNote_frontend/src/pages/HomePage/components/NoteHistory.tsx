@@ -1,5 +1,7 @@
 import { useTaskStore } from '@/store/taskStore'
+import { useProviderStore } from '@/store/providerStore'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import ModelRerouteDialog from '@/components/ModelRerouteDialog'
 import { Button } from '@/components/ui/button.tsx'
 import Fuse from 'fuse.js'
 import { FC, useEffect, useMemo, useState } from 'react'
@@ -34,6 +36,33 @@ const NoteHistory: FC<NoteHistoryProps> = ({
   const retryTask = useTaskStore(state => state.retryTask)
   const historyHasMore = useTaskStore(state => state.historyHasMore)
   const loadMoreHistory = useTaskStore(state => state.loadMoreHistory)
+  const providers = useProviderStore(state => state.provider)
+  const [rerouteOpen, setRerouteOpen] = useState(false)
+  const [rerouteTask, setRerouteTask] = useState<{ id: string } | null>(null)
+
+  const isProviderDisabled = (providerId?: string) => {
+    if (!providerId)
+      return false
+    return providers.find(p => p.id === providerId)?.enabled === 0
+  }
+
+  const handleRetry = (input: string | { id: string; formData?: { provider_id?: string; model_name?: string; [k: string]: any }; [k: string]: any }) => {
+    const taskObj = typeof input === "string" ? allTasks.find(t => t.id === input) || { id: input } : input
+    if (isProviderDisabled(taskObj.formData?.provider_id)) {
+      setRerouteTask({ id: taskObj.id })
+      setRerouteOpen(true)
+      return
+    }
+    retryTask(taskObj.id)
+  }
+
+  const rerouteProviderName = useMemo(() => {
+    if (!rerouteTask)
+      return undefined
+    const t = useTaskStore.getState().tasks.find(x => x.id === rerouteTask.id)
+    const pid = t?.formData?.provider_id
+    return providers.find(p => p.id === pid)?.name
+  }, [rerouteTask, providers])
   const [rawSearch, setRawSearch] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -97,7 +126,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
   }
 
   return (
-    <>
+    <div className="flex h-full flex-col">
       <Dialog
         open={!!pendingDeleteTaskId}
         onOpenChange={(open) => {
@@ -138,7 +167,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
         </DialogContent>
       </Dialog>
       {searchInput}
-      <div className="flex min-w-0 flex-col gap-2.5 pb-3">
+      <div className="flex min-w-0 flex-col gap-2.5 overflow-y-auto pb-3 flex-1 min-h-0">
         {paginatedTasks.map(task => (
           <TaskHistoryCard
             key={task.id}
@@ -146,12 +175,12 @@ const NoteHistory: FC<NoteHistoryProps> = ({
             selected={selectedId === task.id}
             onSelect={onSelect}
             onDelete={setPendingDeleteTaskId}
-            onRetry={task.status === 'FAILED' ? retryTask : undefined}
+            onRetry={task.status === 'FAILED' ? handleRetry : undefined}
           />
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-2 text-xs text-slate-500 shadow-sm">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-2 text-xs text-slate-500 shadow-sm">
         <span>
           第 {currentPage} / {totalPages} 页
         </span>
@@ -194,7 +223,21 @@ const NoteHistory: FC<NoteHistoryProps> = ({
           </Button>
         </div>
       </div>
-    </>
+
+      <ModelRerouteDialog
+        open={rerouteOpen}
+        disabledProviderName={rerouteProviderName}
+        onOpenChange={setRerouteOpen}
+        onSubmit={async (value) => {
+          if (!rerouteTask)
+            return
+          const t = useTaskStore.getState().tasks.find(x => x.id === rerouteTask.id)
+          await retryTask(rerouteTask.id, { ...t?.formData, provider_id: value.provider_id, model_name: value.model_name })
+          setRerouteOpen(false)
+          setRerouteTask(null)
+        }}
+      />
+    </div>
   )
 }
 

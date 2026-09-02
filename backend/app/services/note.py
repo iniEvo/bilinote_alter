@@ -293,6 +293,16 @@ class NoteGenerator:
         if not provider:
             logger.error(f"[get_gpt] 未找到模型供应商: provider_id={provider_id}")
             raise ProviderError(code=ProviderErrorEnum.NOT_FOUND,message=ProviderErrorEnum.NOT_FOUND.message)
+        # 关闭（enabled == 0）的供应商不允许被用于任何生成调用，从源头拦截，
+        # 避免重试 / 批量重试 / 重新生成 / RAG 对话等复用历史配置时误用已关闭模型。
+        # 注意：只把「显式等于 0」视为关闭；None / 缺失 / 1 都视为可用（兼容 legacy 数据）。
+        if provider.get('enabled') == 0:
+            provider_name = provider.get('name') or provider.get('id') or provider_id
+            logger.warning(f"[get_gpt] 供应商已被关闭，拒绝使用: provider_id={provider_id} name={provider_name}")
+            raise ProviderError(
+                code=ProviderErrorEnum.PROVIDER_DISABLED,
+                message=f"模型供应商「{provider_name}」已关闭，请选择其他已启用的供应商",
+            )
         logger.info(f"创建 GPT 实例 {provider_id}")
         config = ModelConfig(
             api_key=provider["api_key"],
@@ -338,7 +348,7 @@ class NoteGenerator:
             return
 
         status_file = task_status_path(task_id)
-        print(f"写入状态文件: {status_file} 当前状态: {status}")
+        logger.info(f"写入状态文件: {status_file} 当前状态: {status}")
         normalized_status = status.value if isinstance(status, TaskStatus) else status
         data = {"status": normalized_status}
         if normalized_status == TaskStatus.FAILED.value:
@@ -357,7 +367,7 @@ class NoteGenerator:
             # Atomic rename operation
             temp_file.replace(status_file)
 
-            print(f"状态文件写入成功: {status_file}")
+            logger.info(f"状态文件写入成功: {status_file}")
         except Exception as e:
             logger.error(f"写入状态文件失败 (task_id={task_id})：{e}")
             # Try to write error to file directly as fallback

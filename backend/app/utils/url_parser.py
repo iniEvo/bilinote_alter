@@ -10,7 +10,7 @@ DOUYIN_URL_RE = re.compile(r'https?://[^\s]+')
 def _extract_douyin_id_from_text(text: str) -> Optional[str]:
     normalized_text = str(text).strip()
 
-    match = re.search(r"(?:douyin\.com)?/video/(\d+)(?:[/?#]|$)", normalized_text)
+    match = re.search(r"(?:douyin\.com)?/(?:video|note)/(\d+)(?:[/?#]|$)", normalized_text)
     if match:
         return match.group(1)
 

@@ -8,6 +8,7 @@ class ProviderErrorEnum(enum.Enum):
     NOT_FOUND = (200104, "供应商不存在/未保存")
     WRONG_PARAMETER = (200105, "API / API 地址不正确")
     UNKNOW_ERROR = (200106, "未知错误")
+    PROVIDER_DISABLED = (200107, "模型供应商已关闭，请选择其他已启用的供应商")
 
     def __init__(self, code, message):
         self.code = code

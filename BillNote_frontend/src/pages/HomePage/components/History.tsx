@@ -44,10 +44,10 @@ const History = () => {
       <Tabs defaultValue="single" className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <TabsList className="grid w-full shrink-0 grid-cols-2 rounded-2xl bg-slate-100/80 p-1">
           <TabsTrigger value="single" className="rounded-xl text-xs [font-variant-numeric:tabular-nums] sm:text-sm">
-            单个任务 ({singleTaskCount})
+            笔记 ({singleTaskCount})
           </TabsTrigger>
           <TabsTrigger value="batch" className="rounded-xl text-xs [font-variant-numeric:tabular-nums] sm:text-sm">
-            批次任务 ({batchGroups.length})
+            项目 ({batchGroups.length})
           </TabsTrigger>
         </TabsList>
 
@@ -58,7 +58,7 @@ const History = () => {
         </TabsContent>
 
         <TabsContent value="batch" className="min-h-0 flex-1 overflow-hidden">
-          <div className="h-full min-h-0 min-w-0 overflow-y-auto pr-2 pb-3">
+          <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden pr-2 pb-3">
             <BatchTaskPanel onSelect={setCurrentTask} selectedId={currentTaskId} searchValue={historySearch} />
           </div>
         </TabsContent>

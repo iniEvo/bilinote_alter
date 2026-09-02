@@ -25,6 +25,8 @@ import TranscriptViewer from '@/pages/HomePage/components/transcriptViewer.tsx'
 import MarkmapEditor from '@/pages/HomePage/components/MarkmapComponent.tsx'
 import ChatPanel from '@/pages/HomePage/components/ChatPanel.tsx'
 import VideoBanner from '@/pages/HomePage/components/VideoBanner.tsx'
+import { useProviderStore } from '@/store/providerStore'
+import ModelRerouteDialog from '@/components/ModelRerouteDialog'
 
 interface VersionNote {
   ver_id: string
@@ -213,7 +215,7 @@ function createMarkdownComponents(baseURL: string) {
       }
 
       return (
-        <li className="my-1" {...props}>
+        <li className="my-1" {...((({ ordered, ...rest }) => rest)(props))}>
           {children}
         </li>
       )
@@ -326,6 +328,23 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
   const currentTask = useTaskStore(state => state.getCurrentTask())
   const taskStatus = currentTask?.status || 'PENDING'
   const retryTask = useTaskStore.getState().retryTask
+  const providers = useProviderStore.getState().provider
+  const [rerouteOpen, setRerouteOpen] = useState(false)
+
+  const isProviderDisabled = (providerId?: string) => {
+    if (!providerId)
+      return false
+    return providers.find(p => p.id === providerId)?.enabled === 0
+  }
+
+  const handleRegenerate = (taskId: string) => {
+    const task = useTaskStore.getState().tasks.find(t => t.id === taskId)
+    if (isProviderDisabled(task?.formData?.provider_id)) {
+      setRerouteOpen(true)
+      return
+    }
+    retryTask(taskId)
+  }
   const isMultiVersion = Array.isArray(currentTask?.markdown)
   const [showTranscribe, setShowTranscribe] = useState(false)
   const [showChat, setShowChat] = useState<false | 'half' | 'full'>(false)
@@ -448,10 +467,28 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
           <p className="text-lg font-bold text-red-500">笔记生成失败</p>
           <p className="mt-2 mb-2 text-xs text-red-400">请检查后台或稍后再试</p>
 
-          <Button onClick={() => retryTask(currentTask.id)} size="lg">
+          <Button onClick={() => handleRegenerate(currentTask.id)} size="lg">
             重试
           </Button>
         </div>
+
+        <ModelRerouteDialog
+          open={rerouteOpen}
+          disabledProviderName={
+            (() => {
+              const pid = currentTask?.formData?.provider_id
+              return providers.find(p => p.id === pid)?.name
+            })()
+          }
+          onOpenChange={setRerouteOpen}
+          onSubmit={async (value) => {
+            if (!currentTask)
+              return
+            await retryTask(currentTask.id, { ...currentTask.formData, provider_id: value.provider_id, model_name: value.model_name })
+            setRerouteOpen(false)
+          }}
+          confirmLabel="用新模型重试"
+        />
       </div>
     )
   }

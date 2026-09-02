@@ -146,10 +146,12 @@ def get_task_record(task_id: str):
         db.close()
 
 
-def list_recent_tasks(limit: int = 100, offset: int = 0):
+def list_recent_tasks(limit: int = 100, offset: int = 0, batch_id: str | None = None):
     db = next(get_db())
     try:
         query = db.query(VideoTask).order_by(VideoTask.created_at.desc())
+        if batch_id:
+            query = query.filter(VideoTask.batch_id == batch_id)
         tasks = query.offset(max(offset, 0)).limit(limit).all()
         return _attach_request_payload_list(tasks)
     except Exception as e:
@@ -264,5 +266,60 @@ def clear_batch_by_id(batch_id: str) -> int:
     except Exception as e:
         logger.error(f'Failed to clear batch by id: {e}')
         return 0
+    finally:
+        db.close()
+
+
+def rename_batch(batch_id: str, new_name: str) -> bool:
+    """Rename all tasks in a batch to a new batch_name."""
+    db = next(get_db())
+    try:
+        tasks = db.query(VideoTask).filter_by(batch_id=batch_id).all()
+        if not tasks:
+            return False
+        for task in tasks:
+            task.batch_name = new_name
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f'Failed to rename batch: {e}')
+        return False
+    finally:
+        db.close()
+
+
+def move_task_to_batch(task_id: str, batch_id: str, batch_name: str) -> bool:
+    """Move a single task into a batch."""
+    db = next(get_db())
+    try:
+        task = db.query(VideoTask).filter_by(task_id=task_id).first()
+        if not task:
+            return False
+        task.batch_id = batch_id
+        task.batch_name = batch_name
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f'Failed to move task to batch: {e}')
+        return False
+    finally:
+        db.close()
+
+
+def get_all_batches() -> list:
+    """Get distinct batch_id + batch_name pairs."""
+    db = next(get_db())
+    try:
+        from sqlalchemy import distinct
+        rows = (
+            db.query(distinct(VideoTask.batch_id), VideoTask.batch_name)
+            .filter(VideoTask.batch_id.isnot(None))
+            .order_by(VideoTask.batch_id.desc())
+            .all()
+        )
+        return [{'batch_id': r[0], 'batch_name': r[1]} for r in rows]
+    except Exception as e:
+        logger.error(f'Failed to get all batches: {e}')
+        return []
     finally:
         db.close()

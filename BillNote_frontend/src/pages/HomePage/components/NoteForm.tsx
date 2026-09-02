@@ -14,12 +14,13 @@ import type { FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-import { Info, Loader2, Plus } from 'lucide-react'
+import { Info, Loader2, Plus, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx'
 import {
   generateNote,
   generateNotesBatch,
   getHistoryTask,
+  getAllBatches,
   type BatchTaskItem,
   type DuplicateTaskInfo,
   type GenerateBatchPayload,
@@ -207,6 +208,9 @@ const NoteForm = () => {
   const [batchDuplicateProgress, setBatchDuplicateProgress] = useState({ total: 0, handled: 0, skipped: 0, continued: 0 })
   const [continuingRemainingDuplicates, setContinuingRemainingDuplicates] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [projects, setProjects] = useState<Array<{ batch_id: string, batch_name: string }>>([])
+  const [selectedBatchId, setSelectedBatchId] = useState('')
+  const [newBatchName, setNewBatchName] = useState('')
   const {
     addBatchGroup,
     addPendingTask,
@@ -256,6 +260,16 @@ const NoteForm = () => {
   useEffect(() => {
     loadEnabledModels()
   }, [loadEnabledModels])
+
+  useEffect(() => {
+    let active = true
+    getAllBatches()
+      .then((list) => {
+        if (active) setProjects(Array.isArray(list) ? list as Array<{ batch_id: string, batch_name: string }> : [])
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     if (uniqueModels.length === 0)
@@ -416,7 +430,14 @@ const NoteForm = () => {
   const submitSingleNote = async (payload: GenerateNotePayload, platform: string) => {
     try {
       const data = await generateNote(payload, { suppressToast: true })
-      addPendingTask(data.task_id, platform, { ...payload, video_url: payload.video_url })
+      addPendingTask(
+        data.task_id,
+        platform,
+        { ...payload, video_url: payload.video_url },
+        payload.batch_id || undefined,
+        payload.video_url,
+        payload.batch_name || undefined,
+      )
       return true
     } catch (e: unknown) {
       const errorPayload = getErrorPayload(e)
@@ -467,6 +488,19 @@ const NoteForm = () => {
       return
     }
 
+    // ── 项目解析 ──
+    let finalBatchId: string | undefined
+    let finalBatchName = ''
+    if (selectedBatchId === '__new__') {
+      const name = newBatchName.trim()
+      if (!name) { toast.error('请输入新项目名称'); return }
+      finalBatchId = crypto.randomUUID()
+      finalBatchName = name
+    } else if (selectedBatchId) {
+      finalBatchId = selectedBatchId
+      finalBatchName = projects.find(p => p.batch_id === selectedBatchId)?.batch_name || ''
+    }
+
     const batchUrls = Array.from(new Set((values.batch_video_urls || '').split('\n').map(line => line.trim()).filter(Boolean)))
     const singleUrl = values.video_url?.trim()
     const allUrls = [singleUrl, ...batchUrls].filter(Boolean) as string[]
@@ -485,6 +519,7 @@ const NoteForm = () => {
       grid_size: sanitizedVideoUnderstanding.grid_size,
       screenshot: values.screenshot,
       link: values.link,
+      ...(finalBatchId ? { batch_id: finalBatchId, batch_name: finalBatchName } : {}),
     }
 
     const currentStoreTask = currentTaskId
@@ -774,6 +809,8 @@ const NoteForm = () => {
   const handleCreateNew = () => {
     setKeepFormDraft(true)
     setCurrentTask(null)
+    setSelectedBatchId('')
+    setNewBatchName('')
     form.reset({
       ...form.getValues(),
       video_url: '',
@@ -910,6 +947,44 @@ const NoteForm = () => {
           </div>
 
           <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
+            <SectionHeader title="项目" tip="将笔记放入已有项目，或新建一个项目" />
+            <div className="flex items-center gap-2">
+              <Select value={selectedBatchId} onValueChange={(v) => {
+                setSelectedBatchId(v)
+                if (v !== '__new__') setNewBatchName('')
+              }}>
+                <SelectTrigger className="h-11 flex-1 rounded-xl border-slate-200 bg-white shadow-sm">
+                  <SelectValue placeholder="不选择项目（可选）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__new__">＋ 新建项目</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.batch_id} value={p.batch_id}>{p.batch_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedBatchId && (
+                <button
+                  type="button"
+                  aria-label="清除项目选择"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                  onClick={() => { setSelectedBatchId(''); setNewBatchName('') }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {selectedBatchId === '__new__' && (
+              <Input
+                className="mt-2 h-11 rounded-xl border-slate-200 bg-white shadow-sm"
+                placeholder="输入新项目名称"
+                value={newBatchName}
+                onChange={e => setNewBatchName(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
             <SectionHeader title="视频链接" tip="支持单条或批量输入，批量模式每行一个链接" />
             <div className="flex gap-2">
               <FormField
@@ -955,26 +1030,6 @@ const NoteForm = () => {
                 </FormItem>
               )}
             />
-
-            {platform !== 'local' && (
-              <FormField
-                control={form.control}
-                name="batch_video_urls"
-                render={({ field }) => (
-                  <FormItem className="mt-3">
-                    <Textarea
-                      disabled={!!editing && batchCount === 0}
-                      placeholder="批量生成：每行一个视频链接，如 https://b23.tv/…"
-                      aria-label="批量视频链接，每行一个"
-                      className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner disabled:cursor-not-allowed disabled:opacity-60"
-                      {...field}
-                    />
-                    <div className="text-xs text-slate-500">当前识别 {batchCount} 条批量链接</div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <FormField
               control={form.control}

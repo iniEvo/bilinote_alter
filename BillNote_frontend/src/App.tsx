@@ -27,10 +27,12 @@ const ProviderForm = lazy(() => import('@/components/Form/modelForm/Form.tsx'))
 const AboutPage = lazy(() => import('@/pages/SettingPage/about.tsx'))
 const Monitor = lazy(() => import('@/pages/SettingPage/Monitor.tsx'))
 const Artifacts = lazy(() => import('@/pages/SettingPage/Artifacts.tsx'))
+const OutputPath = lazy(() => import('@/pages/SettingPage/OutputPath.tsx'))
 const ManualFeatures = lazy(() => import('@/pages/SettingPage/ManualFeatures.tsx'))
 const Downloader = lazy(() => import('@/pages/SettingPage/Downloader.tsx'))
 const DownloaderForm = lazy(() => import('@/components/Form/DownloaderForm/Form.tsx'))
 const TranscriberPage = lazy(() => import('@/pages/SettingPage/transcriber.tsx'))
+const BatchTasks = lazy(() => import('@/pages/SettingPage/BatchTasks'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 function App() {
@@ -87,6 +89,8 @@ function App() {
                 <Route path="monitor" element={<Monitor />}></Route>
                 <Route path="manual" element={<ManualFeatures />}></Route>
                 <Route path="artifacts" element={<Artifacts />}></Route>
+                <Route path="output" element={<OutputPath />}></Route>
+                <Route path="batch" element={<BatchTasks />}></Route>
                 <Route path="about" element={<AboutPage />}></Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

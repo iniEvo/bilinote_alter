@@ -13,6 +13,9 @@ import {
   get_task_status,
   getBatchStatus,
   getHistory,
+  renameBatch,
+  moveTaskToBatch,
+  getAllBatches,
 } from '@/services/note.ts'
 import { v4 as uuidv4 } from 'uuid'
 import { del, get, set } from 'idb-keyval'
@@ -126,6 +129,7 @@ interface TaskStore {
   focusedBatchId: string | null
   historyHasMore: boolean
   hasHydrated: boolean
+  _unloadedBatchIds?: string[]
   batchItems: Record<string, HistoryItem[]>
   addPendingTask: (taskId: string, platform: string, formData: TaskFormData, batchId?: string, sourceUrl?: string, batchName?: string) => void
   addBatchGroup: (batchId: string, platform: string, taskIds: string[], batchName?: string) => void
@@ -158,6 +162,9 @@ interface TaskStore {
   hydrateHistory: () => Promise<void>
   refreshHistoryList: () => Promise<void>
   loadMoreHistory: () => Promise<void>
+  renameBatch: (batchId: string, newName: string) => Promise<boolean>
+  moveTaskToProject: (taskId: string, batchId: string, batchName: string) => Promise<boolean>
+  fetchAllBatches: () => Promise<Array<{ batch_id: string, batch_name: string }>>
 }
 
 export interface HistoryItem {
@@ -301,10 +308,13 @@ const getRetrySkipReasonLabel = (reason?: string, fallbackStatus?: string) => {
     return '任务重试参数无效，请重新生成后再试'
   if (reason === 'task_not_failed')
     return `任务当前状态为 ${fallbackStatus || '非失败'}，只有失败任务才能重试`
+  if (reason.startsWith('provider_disabled'))
+    return `原模型供应商「${reason.slice('provider_disabled:'.length)}」已关闭，请在批次「重试失败项」中选择新模型后重试`
   return reason
 }
 
 const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []): BatchTaskGroup[] => {
+  if (!Array.isArray(previousGroups)) previousGroups = []
   const groups = new Map<string, BatchTaskGroup>()
   const previousMap = new Map(previousGroups.map(group => [group.id, group]))
   for (const task of tasks) {
@@ -316,12 +326,12 @@ const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []):
       name: task.batchName || previous?.name || task.batchId,
       createdAt: task.createdAt,
       platform: task.platform || task.formData.platform,
-      total: previous?.total ?? 0,
-      success: previous?.success ?? 0,
-      failed: previous?.failed ?? 0,
-      pending: previous?.pending ?? 0,
-      paused: previous?.paused ?? 0,
-      canceled: previous?.canceled ?? 0,
+      total: 0,
+      success: 0,
+      failed: 0,
+      pending: 0,
+      paused: 0,
+      canceled: 0,
       controlState: previous?.controlState,
       taskIds: previous?.taskIds ? [...previous.taskIds] : [],
       filter: previous?.filter || 'all',
@@ -332,6 +342,30 @@ const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []):
     if (new Date(task.createdAt).getTime() > new Date(existing.createdAt).getTime())
       existing.createdAt = task.createdAt
     groups.set(task.batchId, existing)
+  }
+  // Recompute counts from actual tasks
+  const taskMap = new Map(tasks.map(t => [t.id, t]))
+  for (const group of groups.values()) {
+    let total = 0, success = 0, failed = 0, pending = 0, paused = 0, canceled = 0
+    for (const taskId of group.taskIds) {
+      const task = taskMap.get(taskId)
+      if (!task) continue
+      total++
+      switch (task.status) {
+        case 'SUCCESS': success++; break
+        case 'FAILED': failed++; break
+        case 'PENDING': case 'PARSING': case 'DOWNLOADING': case 'TRANSCRIBING':
+        case 'SUMMARIZING': case 'FORMATTING': case 'SAVING': pending++; break
+        case 'PAUSED': paused++; break
+        case 'CANCELED': canceled++; break
+      }
+    }
+    group.total = total
+    group.success = success
+    group.failed = failed
+    group.pending = pending
+    group.paused = paused
+    group.canceled = canceled
   }
   return [...groups.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
@@ -765,10 +799,10 @@ export const useTaskStore = create<TaskStore>()(
 
         try {
           await detach_batch_tasks({ batch_id: batchId })
-          toast.success(`已移出批次 ${group.name}，笔记已保留`)
+          toast.success(`已移出项目 ${group.name}，笔记已保留`)
         } catch (error) {
           set(previousState)
-          toast.error('移出批次失败，请稍后重试')
+          toast.error('移出项目失败，请稍后重试')
           throw error
         }
       },
@@ -780,7 +814,7 @@ export const useTaskStore = create<TaskStore>()(
             group.id === batchId ? { ...group, controlState: 'PAUSED' } : group,
           ),
         }))
-        toast.success('批次已暂停')
+        toast.success('项目已暂停')
       },
 
       resumeBatchGroup: async (batchId, override) => {
@@ -799,7 +833,7 @@ export const useTaskStore = create<TaskStore>()(
             ),
           }
         })
-        toast.success(response.count ? `已恢复 ${response.count} 个暂停任务` : '批次已恢复')
+        toast.success(response.count ? `已恢复 ${response.count} 个暂停项` : '项目已恢复')
       },
 
       cancelBatchGroup: async batchId => {
@@ -817,7 +851,7 @@ export const useTaskStore = create<TaskStore>()(
             ),
           }
         })
-        toast.success('批次已取消')
+        toast.success('项目已取消')
       },
 
       clearFailedBatchTasks: async batchId => {
@@ -888,7 +922,10 @@ export const useTaskStore = create<TaskStore>()(
 
       hydrateHistory: async () => {
         try {
-          const history = await getHistory({ limit: HISTORY_PAGE_SIZE, offset: 0 })
+          const [history, allBatches] = await Promise.all([
+            getHistory({ limit: HISTORY_PAGE_SIZE, offset: 0 }),
+            getAllBatches().catch(() => []),
+          ])
           if (!Array.isArray(history) || history.length === 0) {
             set({ historyHasMore: false })
             return
@@ -904,6 +941,33 @@ export const useTaskStore = create<TaskStore>()(
               else merged.push(task)
             }
             merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            // Build groups from loaded tasks, then merge in any backend batches not yet represented
+            const groups = buildBatchGroups(merged, state.batchGroups)
+            const groupMap = new Map(groups.map(g => [g.id, g]))
+            const unloadedBatchIds: string[] = []
+            if (Array.isArray(allBatches)) {
+              for (const batch of allBatches) {
+                if (!groupMap.has(batch.batch_id)) {
+                  unloadedBatchIds.push(batch.batch_id)
+                  groupMap.set(batch.batch_id, {
+                    id: batch.batch_id,
+                    name: batch.batch_name || batch.batch_id,
+                    createdAt: new Date().toISOString(),
+                    platform: '',
+                    total: 0,
+                    success: 0,
+                    failed: 0,
+                    pending: 0,
+                    paused: 0,
+                    canceled: 0,
+                    controlState: null,
+                    taskIds: [],
+                    filter: 'all',
+                  })
+                }
+              }
+            }
+            const mergedGroups = [...groupMap.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             const nextCurrentTaskId = state.keepFormDraft
               ? null
               : (state.currentTaskId && merged.some(task => task.id === state.currentTaskId)
@@ -911,12 +975,39 @@ export const useTaskStore = create<TaskStore>()(
                   : (merged[0]?.id || null))
             return {
               tasks: merged,
-              batchGroups: buildBatchGroups(merged, state.batchGroups),
+              batchGroups: mergedGroups,
               currentTaskId: nextCurrentTaskId,
               historyHasMore: history.length >= HISTORY_PAGE_SIZE,
               hasHydrated: true,
+              _unloadedBatchIds: unloadedBatchIds,
             }
           })
+
+          // Silently fetch tasks for batches not in the initial page
+          const unloaded = get()._unloadedBatchIds || []
+          if (unloaded.length > 0) {
+            const batchResults = await Promise.all(
+              unloaded.map(bid => getHistory({ limit: 500, offset: 0, batch_id: bid }).catch(() => []))
+            )
+            set(state => {
+              const merged = [...state.tasks]
+              for (const batchHistory of batchResults) {
+                if (!Array.isArray(batchHistory)) continue
+                for (const item of batchHistory) {
+                  const task = createHistoryTask(item)
+                  const idx = merged.findIndex(existing => existing.id === task.id)
+                  if (idx >= 0) merged[idx] = { ...merged[idx], ...task }
+                  else merged.push(task)
+                }
+              }
+              merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              return {
+                tasks: merged,
+                batchGroups: buildBatchGroups(merged, []),
+                _unloadedBatchIds: [],
+              }
+            })
+          }
         } catch (error) {
           console.error('恢复历史笔记失败:', error)
         }
@@ -1014,6 +1105,48 @@ export const useTaskStore = create<TaskStore>()(
       setCurrentTask: taskId => set({ currentTaskId: taskId, keepFormDraft: false }),
       setKeepFormDraft: keep => set({ keepFormDraft: keep }),
       setFocusedBatch: batchId => set({ focusedBatchId: batchId }),
+
+      renameBatch: async (batchId: string, newName: string): Promise<boolean> => {
+        try {
+          await renameBatch(batchId, newName)
+          set(state => {
+            const tasks = state.tasks.map(t =>
+              t.batchId === batchId ? { ...t, batchName: newName } : t,
+            )
+            const batchGroups = state.batchGroups.map(group =>
+              group.id === batchId ? { ...group, name: newName } : group,
+            )
+            return { tasks, batchGroups }
+          })
+          return true
+        } catch {
+          return false
+        }
+      },
+
+      moveTaskToProject: async (taskId: string, batchId: string, batchName: string): Promise<boolean> => {
+        try {
+          await moveTaskToBatch(taskId, batchId, batchName)
+          set(state => {
+            const tasks = state.tasks.map(t =>
+              t.id === taskId ? { ...t, batchId, batchName } : t,
+            )
+            return { tasks, batchGroups: buildBatchGroups(tasks, state.batchGroups) }
+          })
+          return true
+        } catch {
+          return false
+        }
+      },
+
+      fetchAllBatches: async () => {
+        try {
+          const data = await getAllBatches() as Array<{ batch_id: string, batch_name: string }>
+          return data || []
+        } catch {
+          return []
+        }
+      },
     }),
     {
       name: 'task-storage',

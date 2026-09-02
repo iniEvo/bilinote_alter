@@ -22,7 +22,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.utils.logger import get_logger
-from app.utils.output_paths import JSON_OUTPUT_DIR, NOTE_OUTPUT_DIR
+from app.utils.output_paths import JSON_OUTPUT_DIR, NOTE_OUTPUT_DIR, get_note_output_dir
 from app.utils.path_helper import resolve_app_path
 from app.utils.response import ResponseWrapper as R
 
@@ -39,7 +39,10 @@ def _dir(path: str) -> Path:
 # - dirs：目录（整目录内容清理）
 # - globs / exclude_globs：glob 文件模式，glob 结果中排除 exclude_globs 命中的文件
 # - deletable=False 的条目清理接口会直接拒绝，双保险。
-ARTIFACT_REGISTRY = [
+#
+# 注：Markdown 导出副本目录支持运行时可配置（设置页「存储位置」），
+# 因此登记表用函数构建，每次都取当前生效目录（get_note_output_dir）。
+ARTIFACT_REGISTRY_STATIC = [
     {
         "key": "note_json",
         "name": "笔记成品（JSON）",
@@ -54,15 +57,6 @@ ARTIFACT_REGISTRY = [
         ],
         "deletable": False,
         "warning": "这是前端展示笔记的唯一依据，删除后所有笔记在前端将无法显示",
-    },
-    {
-        "key": "markdown_notes",
-        "name": "Markdown 导出副本（.md）",
-        "description": "从笔记 JSON 的 markdown 字段落盘的纯文本副本（note_results/*.md），仅用于导出或本地打开；"
-        "删除不影响前端展示，可随时从笔记 JSON 重新生成",
-        "dirs": [str(NOTE_OUTPUT_DIR)],
-        "deletable": True,
-        "warning": "删除后前端笔记正文仍可正常查看，但本地 .md 副本需要重新导出才会生成",
     },
     {
         "key": "transcript_json",
@@ -118,7 +112,22 @@ ARTIFACT_REGISTRY = [
     },
 ]
 
-_KEY_TO_META = {item["key"]: item for item in ARTIFACT_REGISTRY}
+_KEY_TO_META_STATIC = {item["key"]: item for item in ARTIFACT_REGISTRY_STATIC}
+
+
+def _build_registry() -> List[dict]:
+    """构建完整生成物登记表：静态条目 + 动态的 Markdown 导出副本目录。"""
+    return ARTIFACT_REGISTRY_STATIC + [
+        {
+            "key": "markdown_notes",
+            "name": "Markdown 导出副本（.md）",
+            "description": "从笔记 JSON 的 markdown 字段落盘的纯文本副本（note_results/*.md），仅用于导出或本地打开；"
+            "删除不影响前端展示，可随时从笔记 JSON 重新生成",
+            "dirs": [str(get_note_output_dir())],
+            "deletable": True,
+            "warning": "删除后前端笔记正文仍可正常查看，但本地 .md 副本需要重新导出才会生成",
+        },
+    ]
 
 
 def _stat_dirs(dirs: List[Path]) -> Tuple[int, int]:
@@ -231,7 +240,7 @@ def _clear_item(item) -> Tuple[int, int]:
 @router.get("/artifacts")
 def list_artifacts():
     items = []
-    for item in ARTIFACT_REGISTRY:
+    for item in _build_registry():
         size_bytes, file_count = _stat_item(item)
         items.append({
             "key": item["key"],
@@ -250,16 +259,21 @@ class CleanupRequest(BaseModel):
     keys: List[str]
 
 
+def _resolve_meta_by_key(key: str) -> dict:
+    """按 key 查找生成物登记条目，动态构建以取当前生效目录。"""
+    for item in _build_registry():
+        if item["key"] == key:
+            return item
+    return None
+
+
 @router.post("/artifacts/cleanup")
 def cleanup_artifacts(data: CleanupRequest):
     results = []
-    known_keys = set(_KEY_TO_META.keys())
-    unknown = [k for k in data.keys if k not in known_keys]
-    if unknown:
-        return R.error(msg=f"未知的生成物类型: {', '.join(unknown)}", code=400)
-
     for key in data.keys:
-        meta = _KEY_TO_META[key]
+        meta = _resolve_meta_by_key(key)
+        if meta is None:
+            return R.error(msg=f"未知的生成物类型: {key}", code=400)
         if not meta["deletable"]:
             results.append({"key": key, "status": "refused", "msg": "该生成物不允许批量清理"})
             continue
