@@ -1,3 +1,0 @@
-- 本项目本地启动时，后端 Python 环境当前有效路径是 `backend/.venv313/bin/python`；启动脚本已做多级回退，不应再假设根目录 `.venv` 一定存在。
-- 在 WorkBuddy 非交互后台执行里，`启动BiliNote.command` 只适合做就绪检查，不适合保活前后端；稳定拉起服务时应分别后台运行后端 `backend/.venv313/bin/python backend/main.py`（附带 `HF_ENDPOINT=https://hf-mirror.com`、`WHISPER_MODEL_SIZE=tiny`）和前端 `cd BillNote_frontend && pnpm dev --host 0.0.0.0`。
-- **ffmpeg 由 mise 管理（2026-08-25 修复）**：旧路径 `/Users/jiuyue/.local/bin` 下已无 ffmpeg，会导致后端报 ffmpeg missing。正确做法是动态解析：`FFMPEG_BIN_PATH="$(/Users/jiuyue/.local/bin/mise which ffmpeg | xargs dirname)"`（当前为 `~/.local/share/mise/installs/ffmpeg/9.0.1/.mise-bins`）。不要写死带版本号的路径。`启动BiliNote.command` 已改为从 mise 动态解析 + 扫描兜底。

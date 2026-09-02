@@ -31,7 +31,11 @@ BACKEND_PLIST="$LAUNCH_AGENTS_DIR/${BACKEND_LABEL}.plist"
 FRONTEND_PLIST="$LAUNCH_AGENTS_DIR/${FRONTEND_LABEL}.plist"
 BACKEND_LAUNCHER="$ROOT/bilinote-backend-launch.sh"
 FRONTEND_LAUNCHER="$ROOT/bilinote-frontend-launch.sh"
-PNPM_BIN="/Users/jiuyue/.workbuddy/binaries/node/versions/22.22.2/bin/pnpm"
+# pnpm 由 mise 管理：优先用 mise 动态解析，兜底 PATH 中的 pnpm（原 workbuddy 路径已删除）
+PNPM_BIN="$("$MISE_BIN" which pnpm 2>/dev/null || true)"
+if [ -z "$PNPM_BIN" ] || [ ! -x "$PNPM_BIN" ]; then
+  PNPM_BIN="$(command -v pnpm 2>/dev/null || true)"
+fi
 LAUNCHD_DOMAIN="gui/$(id -u)"
 
 if [ -x "$ROOT/.venv/bin/python" ]; then
