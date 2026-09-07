@@ -47,8 +47,8 @@ export default function ManualFeatures() {
   }
 
   return (
-    <ScrollArea className="h-full overflow-y-auto bg-white">
-      <div className="container mx-auto px-4 py-8">
+    <ScrollArea className="h-full overflow-y-auto bg-transparent">
+      <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold">手动功能</h1>

@@ -167,7 +167,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
         </DialogContent>
       </Dialog>
       {searchInput}
-      <div className="flex min-w-0 flex-col gap-2.5 overflow-y-auto pb-3 flex-1 min-h-0">
+      <div className="flex min-w-0 flex-col gap-3 overflow-y-auto pb-3 flex-1 min-h-0 pr-3">
         {paginatedTasks.map(task => (
           <TaskHistoryCard
             key={task.id}
@@ -175,13 +175,13 @@ const NoteHistory: FC<NoteHistoryProps> = ({
             selected={selectedId === task.id}
             onSelect={onSelect}
             onDelete={setPendingDeleteTaskId}
-            onRetry={task.status === 'FAILED' ? handleRetry : undefined}
+            onRetry={['FAILED', 'RETRYABLE'].includes(task.status) ? handleRetry : undefined}
           />
         ))}
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-2 text-xs text-slate-500 shadow-sm">
-        <span>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2.5 text-xs text-slate-500 shadow-sm mr-[18px]">
+        <span className="tabular-nums">
           第 {currentPage} / {totalPages} 页
         </span>
         <div className="flex items-center gap-2">

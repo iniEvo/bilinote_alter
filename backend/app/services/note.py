@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
+import socket
 from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional, Tuple, Union, Any
@@ -65,6 +67,62 @@ IMAGE_BASE_URL = os.getenv("IMAGE_BASE_URL", "/static/screenshots")
 # 日志配置
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+# ------------------ 瞬时错误判定（可重试 vs 永久失败） ------------------
+
+# 归为「可重试」的瞬时网络错误：连接中断/重置/超时等，任务本身未被破坏，
+# 重试通常能成功（区别于 403 反爬、欠费、参数错误等永久失败）。
+_TRANSIENT_ERRNO_SET = frozenset({
+    errno.EPIPE,        # Broken pipe
+    errno.ECONNRESET,   # Connection reset by peer
+    errno.ECONNABORTED,
+    errno.ETIMEDOUT,    # Operation timed out
+    errno.ECONNREFUSED,
+    errno.EHOSTUNREACH,
+    errno.ENETUNREACH,
+    errno.ENETDOWN,
+    errno.EHOSTDOWN,
+    errno.ENETRESET,
+})
+
+_TRANSIENT_EXC_CLASSES: tuple = (
+    BrokenPipeError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+    ConnectionError,
+    TimeoutError,
+    socket.timeout,
+)
+
+
+def _is_retryable_error(exc: BaseException) -> bool:
+    """判断异常是否为瞬时网络错误（归为可重试），而非永久失败。
+
+    覆盖场景：Broken pipe、连接被重置/中止、超时、目标不可达，以及
+    httpx / requests 的传输层连接与超时异常。403 等 HTTP 业务错误不在此列。
+    """
+    if isinstance(exc, _TRANSIENT_EXC_CLASSES):
+        return True
+    if isinstance(exc, OSError) and getattr(exc, 'errno', None) in _TRANSIENT_ERRNO_SET:
+        return True
+    try:
+        import httpx
+        if isinstance(exc, httpx.TransportError):
+            return True
+    except Exception:
+        pass
+    try:
+        import requests
+        if isinstance(exc, (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ChunkedEncodingError,
+        )):
+            return True
+    except Exception:
+        pass
+    return False
 
 
 class NoteGenerator:
@@ -254,7 +312,10 @@ class NoteGenerator:
 
         except Exception as exc:
             logger.error(f"生成笔记流程异常 (task_id={task_id})：{exc}", exc_info=True)
-            self._update_status(task_id, TaskStatus.FAILED, message=str(exc))
+            if _is_retryable_error(exc):
+                self._update_status(task_id, TaskStatus.RETRYABLE, message=f"连接中断，任务可重试：{exc}")
+            else:
+                self._update_status(task_id, TaskStatus.FAILED, message=str(exc))
             return None
 
     @staticmethod
@@ -353,6 +414,8 @@ class NoteGenerator:
         data = {"status": normalized_status}
         if normalized_status == TaskStatus.FAILED.value:
             message = str(message or '').strip() or '任务失败，未写入详细原因'
+        elif normalized_status == TaskStatus.RETRYABLE.value:
+            message = str(message or '').strip() or '连接中断，任务可重试'
         if message:
             data["message"] = message
 
@@ -385,7 +448,10 @@ class NoteGenerator:
                 error_message = json.dumps(error_message, ensure_ascii=False)
             except:
                 error_message = str(error_message)
-        self._update_status(task_id, TaskStatus.FAILED, message=error_message)
+        if _is_retryable_error(exc):
+            self._update_status(task_id, TaskStatus.RETRYABLE, message=f"连接中断，任务可重试：{error_message}")
+        else:
+            self._update_status(task_id, TaskStatus.FAILED, message=error_message)
 
     def _download_media(
         self,
@@ -644,6 +710,13 @@ class NoteGenerator:
             markdown = gpt.summarize(source)
             markdown_cache_file.write_text(markdown, encoding="utf-8")
             logger.info(f"GPT 总结并缓存成功 ({markdown_cache_file})")
+            # 清理残留的 _markdown 中间状态文件，避免成功任务被误判为"进行中"
+            try:
+                stale = task_status_path(markdown_cache_file.stem)
+                if stale.exists():
+                    stale.unlink()
+            except Exception:
+                pass
             return markdown
         except Exception as exc:
             logger.error(f"GPT 总结失败：{exc}")

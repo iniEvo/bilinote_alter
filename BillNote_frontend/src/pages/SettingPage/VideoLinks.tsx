@@ -176,7 +176,7 @@ const VideoLinks: FC = () => {
                           : <span className="text-slate-300">-</span>}
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`text-xs ${item.status === 'SUCCESS' ? 'text-green-600' : item.status === 'FAILED' ? 'text-red-500' : 'text-slate-400'}`}>
+                        <span className={`text-xs ${item.status === 'SUCCESS' ? 'text-green-600' : item.status === 'FAILED' ? 'text-red-500' : item.status === 'RETRYABLE' ? 'text-amber-500' : 'text-slate-400'}`}>
                           {item.status}
                         </span>
                       </td>
@@ -192,7 +192,7 @@ const VideoLinks: FC = () => {
 
       {/* pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <span>共 {filteredItems.length} 条，第 {safePage} / {totalPages} 页</span>
           <div className="flex gap-1">
             <Button

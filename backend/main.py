@@ -88,14 +88,14 @@ async def lifespan(app: FastAPI):
                     continue
                 if st in stuck_statuses:
                     task_id = p.name.replace(".status.json", "")
-                    # 重置为 PENDING，前端轮询时会重新触发
-                    new_data = {"status": TaskStatus.FAILED.value, "message": f"后端重启时任务被中断，请点击重试 (原状态: {st})"}
+                    # 重启导致的中断属于瞬时错误，归为 RETRYABLE（可重试），前端轮询时会重新触发
+                    new_data = {"status": TaskStatus.RETRYABLE.value, "message": f"后端重启时任务被中断，请点击重试 (原状态: {st})"}
                     tmp = p.with_suffix(".tmp")
                     tmp.write_text(json.dumps(new_data, ensure_ascii=False, indent=2), encoding="utf-8")
                     tmp.replace(p)
                     recovered += 1
             if recovered:
-                logger.info(f"  共 {recovered} 个卡住任务已重置为 PENDING")
+                logger.info(f"  共 {recovered} 个卡住任务已标记为可重试（RETRYABLE）")
         except Exception as _e:
             logger.warning(f"  恢复卡住任务失败: {_e}")
     except Exception:

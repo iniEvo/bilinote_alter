@@ -40,6 +40,7 @@ export type TaskStatus =
   | 'SAVING'
   | 'SUCCESS'
   | 'FAILED'
+  | 'RETRYABLE'
 
 export interface AudioMeta {
   cover_url: string
@@ -133,6 +134,7 @@ interface TaskStore {
   batchItems: Record<string, HistoryItem[]>
   addPendingTask: (taskId: string, platform: string, formData: TaskFormData, batchId?: string, sourceUrl?: string, batchName?: string) => void
   addBatchGroup: (batchId: string, platform: string, taskIds: string[], batchName?: string) => void
+  createEmptyProject: (name: string) => string
   upsertHistoryTask: (item: HistoryItem) => Task
   getBatchItems: (batchId: string) => HistoryItem[]
   setBatchFilter: (batchId: string, filter: 'all' | 'success' | 'failed') => void
@@ -199,6 +201,7 @@ const isTaskStatus = (value: string | undefined): value is TaskStatus => Boolean
   'SAVING',
   'SUCCESS',
   'FAILED',
+  'RETRYABLE',
 ].includes(value))
 
 const parseTaskStatus = (value: string | undefined, fallback: TaskStatus = 'PENDING'): TaskStatus => {
@@ -293,8 +296,8 @@ const patchHistoryCardTask = (existing: Task, item: HistoryItem): Task => {
 
 const getRetrySkipReasonLabel = (reason?: string, fallbackStatus?: string) => {
   if (!reason) {
-    if (fallbackStatus && fallbackStatus !== 'FAILED')
-      return `任务当前状态为 ${fallbackStatus}，只有失败任务才能重试`
+    if (fallbackStatus && fallbackStatus !== 'FAILED' && fallbackStatus !== 'RETRYABLE')
+      return `任务当前状态为 ${fallbackStatus}，只有失败/可重试任务才能重试`
     return '当前任务不可重试'
   }
 
@@ -353,7 +356,7 @@ const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []):
       total++
       switch (task.status) {
         case 'SUCCESS': success++; break
-        case 'FAILED': failed++; break
+        case 'FAILED': case 'RETRYABLE': failed++; break
         case 'PENDING': case 'PARSING': case 'DOWNLOADING': case 'TRANSCRIBING':
         case 'SUMMARIZING': case 'FORMATTING': case 'SAVING': pending++; break
         case 'PAUSED': paused++; break
@@ -366,6 +369,21 @@ const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []):
     group.pending = pending
     group.paused = paused
     group.canceled = canceled
+  }
+  // 保留上一轮存在的、没有任何任务引用的项目组（如手动新建的空项目），避免重建时丢失
+  for (const prev of previousGroups) {
+    if (!groups.has(prev.id)) {
+      groups.set(prev.id, {
+        ...prev,
+        total: 0,
+        success: 0,
+        failed: 0,
+        pending: 0,
+        paused: 0,
+        canceled: 0,
+        taskIds: [],
+      })
+    }
   }
   return [...groups.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
@@ -482,6 +500,32 @@ export const useTaskStore = create<TaskStore>()(
             ...state.batchGroups.filter(group => group.id !== batchId),
           ],
         })),
+
+      createEmptyProject: (name: string) => {
+        const batchId = crypto.randomUUID()
+        const trimmed = name.trim() || batchId
+        set(state => ({
+          batchGroups: [
+            {
+              id: batchId,
+              name: trimmed,
+              createdAt: new Date().toISOString(),
+              platform: '',
+              total: 0,
+              success: 0,
+              failed: 0,
+              pending: 0,
+              paused: 0,
+              canceled: 0,
+              controlState: 'COMPLETED',
+              taskIds: [],
+              filter: 'all',
+            },
+            ...state.batchGroups.filter(group => group.id !== batchId),
+          ],
+        }))
+        return batchId
+      },
 
       getBatchItems: batchId => get().batchItems[batchId] || [],
 
@@ -624,7 +668,7 @@ export const useTaskStore = create<TaskStore>()(
               })
             }
 
-            if (nextStatus !== 'FAILED') {
+            if (nextStatus !== 'FAILED' && nextStatus !== 'RETRYABLE') {
               toast(getRetrySkipReasonLabel('task_not_failed', nextStatus))
               return false
             }
@@ -737,7 +781,7 @@ export const useTaskStore = create<TaskStore>()(
             }
             if (status === 'SUCCESS')
               next.success = Math.max(0, group.success - 1)
-            else if (status === 'FAILED')
+            else if (status === 'FAILED' || status === 'RETRYABLE')
               next.failed = Math.max(0, group.failed - 1)
             else if (status === 'PENDING' || status === 'PARSING' || status === 'DOWNLOADING' || status === 'TRANSCRIBING' || status === 'SUMMARIZING' || status === 'FORMATTING' || status === 'SAVING')
               next.pending = Math.max(0, group.pending - 1)
@@ -840,7 +884,7 @@ export const useTaskStore = create<TaskStore>()(
         await batchCancel(batchId)
         set(state => {
           const tasks = state.tasks.map(task =>
-            task.batchId === batchId && !['SUCCESS', 'FAILED', 'CANCELED'].includes(task.status)
+            task.batchId === batchId && !['SUCCESS', 'FAILED', 'CANCELED', 'RETRYABLE'].includes(task.status)
               ? { ...task, status: 'CANCELED' as TaskStatus, message: '批次任务已取消' }
               : task,
           )
@@ -1003,10 +1047,18 @@ export const useTaskStore = create<TaskStore>()(
               merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               return {
                 tasks: merged,
-                batchGroups: buildBatchGroups(merged, []),
+                batchGroups: buildBatchGroups(merged, get().batchGroups),
                 _unloadedBatchIds: [],
               }
             })
+          }
+
+          // 强制同步已有 batch 的任务状态：persist 的 batchItems 可能停留在
+          // 提交时的 PENDING，不刷新会一直显示"等待中"（实际任务可能已成功/失败）。
+          try {
+            await get().refreshHistoryList()
+          } catch {
+            // 静默：下次轮询兜底
           }
         } catch (error) {
           console.error('恢复历史笔记失败:', error)
@@ -1140,12 +1192,20 @@ export const useTaskStore = create<TaskStore>()(
       },
 
       fetchAllBatches: async () => {
+        let backend: Array<{ batch_id: string, batch_name: string }> = []
         try {
-          const data = await getAllBatches() as Array<{ batch_id: string, batch_name: string }>
-          return data || []
+          backend = (await getAllBatches()) || []
         } catch {
-          return []
+          backend = []
         }
+        // 后端 /all_batches 只返回至少含一条任务的批次；本地 store 中手动新建的空项目
+        // （无任何任务引用）也要出现在「移入项目」下拉里，因此合并两者，本地优先。
+        const merged = new Map<string, { batch_id: string, batch_name: string }>()
+        for (const batch of backend)
+          merged.set(batch.batch_id, batch)
+        for (const group of get().batchGroups || [])
+          merged.set(group.id, { batch_id: group.id, batch_name: group.name })
+        return [...merged.values()]
       },
     }),
     {

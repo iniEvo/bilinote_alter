@@ -221,24 +221,34 @@ const Onboarding = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-pink-50 p-6">
-      <div className="w-full max-w-xl rounded-xl border bg-white p-6 shadow-lg">
-        <div className="flex items-center gap-3 mb-4">
-          <img src={logo} alt="logo" className="h-10 w-10" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 p-6">
+      {/* 背景氛围光 */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-indigo-500/15 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_35%),linear-gradient(135deg,#eef4ff_0%,#f7f9fc_42%,#eef2ff_100%)]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-xl rounded-[28px] border border-white/60 bg-white/88 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl md:p-8">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-indigo-500 p-2 shadow-lg shadow-blue-500/20">
+            <img src={logo} alt="logo" className="h-full w-full object-contain" />
+          </div>
           <div>
-            <h1 className="text-xl font-bold">欢迎使用 BiliNote</h1>
-            <p className="text-xs text-gray-500">几步配置后就可以开始把视频转笔记。</p>
+            <h1 className="text-xl font-semibold text-slate-900">欢迎使用 BiliNote</h1>
+            <p className="text-xs text-slate-500">几步配置后就可以开始把视频转笔记。</p>
           </div>
         </div>
 
         {/* Stepper */}
-        <div className="mb-5 flex items-center gap-2 text-xs text-gray-500">
+        <div className="mb-6 flex items-center gap-2 text-xs text-slate-500">
           {[1, 2, 3, 4].map(s => (
             <div key={s} className="flex items-center gap-2">
               <div
-                className={`flex h-6 w-6 items-center justify-center rounded-full border ${step >= s ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-medium transition-colors ${step >= s ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-400/40' : 'border-slate-200 bg-white text-slate-400'}`}
               >{s}</div>
-              {s < 4 && <div className={`h-px w-8 ${step > s ? 'bg-blue-600' : 'bg-gray-300'}`} />}
+              {s < 4 && <div className={`h-px w-8 transition-colors ${step > s ? 'bg-blue-500' : 'bg-slate-200'}`} />}
             </div>
           ))}
         </div>
@@ -257,15 +267,18 @@ const Onboarding = () => {
             )}
             <div className="flex gap-2 justify-end">
               {backendOk !== true && (
-                <button
-                  className="px-3 py-1.5 text-sm rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                <button className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
                   disabled={pinging}
                   onClick={doPing}
                 >
                   {pinging ? '检测中…' : '重新检测'}
                 </button>
               )}
-              <button className="px-4 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50" disabled={!backendOk} onClick={next}>
+              <button
+                className="rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-400/40 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!backendOk}
+                onClick={next}
+              >
                 下一步
               </button>
             </div>
@@ -278,24 +291,24 @@ const Onboarding = () => {
             <p className="text-sm text-gray-600">填一个 OpenAI 兼容供应商：DeepSeek / Qwen / Claude / 自托管 / OpenAI 都行。</p>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600">供应商名（自取）</span>
-              <input className="input border rounded px-2 py-1" value={providerName} onChange={e => setProviderName(e.target.value)} />
+              <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200/60" value={providerName} onChange={e => setProviderName(e.target.value)} />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600">API 地址</span>
-              <input className="input border rounded px-2 py-1" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} />
+              <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200/60" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600">API Key</span>
-              <input type="password" className="input border rounded px-2 py-1" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+              <input type="password" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200/60" value={apiKey} onChange={e => setApiKey(e.target.value)} />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-gray-600">模型名（如 gpt-4o-mini / deepseek-chat / qwen-turbo）</span>
-              <input className="input border rounded px-2 py-1" value={modelName} onChange={e => setModelName(e.target.value)} />
+              <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200/60" value={modelName} onChange={e => setModelName(e.target.value)} />
             </label>
-            {error && <div className="text-xs text-red-600">{error}</div>}
+            {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>}
             <div className="flex gap-2 justify-between">
-              <button className="text-sm text-gray-500 hover:text-gray-800" onClick={prev}>上一步</button>
-              <button className="px-4 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50" disabled={savingProvider} onClick={saveProvider}>
+              <button className="rounded-xl px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800" onClick={prev}>上一步</button>
+              <button className="rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-400/40 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" disabled={savingProvider} onClick={saveProvider}>
                 {savingProvider ? '保存中…' : '保存并下一步'}
               </button>
             </div>
@@ -313,7 +326,7 @@ const Onboarding = () => {
                 { value: 'kuaishou', title: '快手（在线，免登）', desc: '与必剪类似，备选。' },
                 { value: 'fast-whisper', title: 'Faster Whisper（本地）', desc: '完全离线但首次需下载 ~75MB（tiny）至 ~3GB（large-v3）的模型。CPU 慢。' },
               ].map(opt => (
-                <label key={opt.value} className={`flex gap-3 p-3 rounded border cursor-pointer ${transcriberType === opt.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <label key={opt.value} className={`flex gap-3 rounded-xl border px-3 py-3 transition-colors cursor-pointer ${transcriberType === opt.value ? 'border-blue-500 bg-blue-50/80 shadow-sm shadow-blue-400/20' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40'}`}>
                   <input type="radio" name="transcriber" value={opt.value} checked={transcriberType === opt.value} onChange={e => setTranscriberType(e.target.value)} />
                   <div>
                     <div className="text-sm font-medium">{opt.title}</div>
@@ -322,10 +335,10 @@ const Onboarding = () => {
                 </label>
               ))}
             </div>
-            {error && <div className="text-xs text-red-600">{error}</div>}
+            {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>}
             <div className="flex gap-2 justify-between">
-              <button className="text-sm text-gray-500 hover:text-gray-800" onClick={prev}>上一步</button>
-              <button className="px-4 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50" disabled={savingTranscriber} onClick={saveTranscriber}>
+              <button className="rounded-xl px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800" onClick={prev}>上一步</button>
+              <button className="rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-400/40 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" disabled={savingTranscriber} onClick={saveTranscriber}>
                 {savingTranscriber ? '保存中…' : '保存并下一步'}
               </button>
             </div>
@@ -340,12 +353,12 @@ const Onboarding = () => {
               <br />
               YouTube 一般不需要 cookie。先跳过也没问题，到时再去配。
             </p>
-            <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
+            <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600 border border-slate-200/80">
               提示：插件版（<a className="text-blue-600 underline" href="https://github.com/JefferyHcool/BiliNote/tree/develop/BillNote_extension" target="_blank" rel="noreferrer">BillNote_extension</a>）支持一键 cookie 同步；桌面版需手动复制。
             </div>
             <div className="flex gap-2 justify-between">
-              <button className="text-sm text-gray-500 hover:text-gray-800" onClick={prev}>上一步</button>
-              <button className="px-4 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700" onClick={finish}>
+              <button className="rounded-xl px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800" onClick={prev}>上一步</button>
+              <button className="rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-400/40 transition-colors hover:bg-blue-700" onClick={finish}>
                 完成，进入 BiliNote
               </button>
             </div>

@@ -46,7 +46,7 @@ async function poll(taskId: string) {
       result: res.result ?? activeTask.value?.result,
       title: activeTask.value?.title || normalizeVideoTitle(tabTitle.value),
     })
-    if (res.status !== 'SUCCESS' && res.status !== 'FAILED')
+    if (!['SUCCESS', 'FAILED', 'RETRYABLE'].includes(res.status))
       pollTimer = setTimeout(() => poll(taskId), 3000)
   }
   catch (e) {
@@ -140,7 +140,7 @@ async function openSidePanel() {
 function selectTask(id: string) {
   activeTaskId.value = id
   const t = tasks.value?.find(x => x.taskId === id)
-  if (t && t.status !== 'SUCCESS' && t.status !== 'FAILED')
+  if (t && !['SUCCESS', 'FAILED', 'RETRYABLE'].includes(t.status))
     poll(id)
 }
 
@@ -157,7 +157,7 @@ function fmtTime(ts?: number) {
 onMounted(async () => {
   await Promise.all([settingsReady, tasksReady])
   await loadActiveTab()
-  const running = tasks.value?.find(t => t.status !== 'SUCCESS' && t.status !== 'FAILED')
+  const running = tasks.value?.find(t => !['SUCCESS', 'FAILED', 'RETRYABLE'].includes(t.status))
   if (running) {
     activeTaskId.value = running.taskId
     poll(running.taskId)

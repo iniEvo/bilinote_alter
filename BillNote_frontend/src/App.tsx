@@ -36,7 +36,7 @@ const BatchTasks = lazy(() => import('@/pages/SettingPage/BatchTasks'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 function App() {
-  useTaskPolling(60000) // 每 60 秒轮询一次
+  useTaskPolling(10000) // 每 10 秒轮询一次
   const { loading, initialized, failed, lastError, retry } = useCheckBackend()
 
   // 在后端初始化完成后执行系统检查
@@ -77,7 +77,7 @@ function App() {
             <Route path="/" element={<OnboardingGuard><Index /></OnboardingGuard>}>
               <Route index element={<HomePage />} />
               <Route path="settings" element={<SettingPage />}>
-                <Route index element={<Navigate to="model" replace />} />
+                <Route index element={<Navigate to="batch" replace />} />
                 <Route path="model" element={<Model />}>
                   <Route path="new" element={<ProviderForm isCreate />} />
                   <Route path=":id" element={<ProviderForm />} />

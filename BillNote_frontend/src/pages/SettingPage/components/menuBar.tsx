@@ -21,9 +21,12 @@ const MenuBar: FC<IMenuItem> = ({ menuItem }) => {
     <Link
       to={menuItem.path}
       aria-current={isActive ? 'page' : undefined}
-      className="flex h-12 w-full items-center gap-2.5 rounded-xl px-3 text-[15px] text-slate-600 transition-[background-color,color] hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current=page]:bg-blue-50 aria-[current=page]:font-medium aria-[current=page]:text-blue-700"
+      className="group flex h-11 w-full items-center gap-2.5 rounded-xl px-3 text-[15px] text-slate-600 transition-[background-color,color,box-shadow] hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current=page]:bg-blue-50 aria-[current=page]:font-medium aria-[current=page]:text-blue-700 aria-[current=page]:shadow-sm aria-[current=page]:shadow-blue-100"
     >
-      <span className="flex h-6 w-6 items-center justify-center" aria-hidden="true">
+      <span
+        className="flex h-6 w-6 items-center justify-center transition-colors group-aria-[current=page]:text-blue-600"
+        aria-hidden="true"
+      >
         {menuItem.icon}
       </span>
       <span>{menuItem.name}</span>

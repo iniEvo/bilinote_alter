@@ -75,6 +75,37 @@ def _normalize_duplicate_key(video_url: Optional[str], platform: Optional[str]) 
     return candidate
 
 
+def _detect_url_platform(url: Optional[str]) -> Optional[str]:
+    """从链接内容推断真实平台，用于前端平台参数缺失/错选时兜底。"""
+    text = str(url or '').strip().lower()
+    if not text:
+        return None
+    if 'douyin.com' in text or 'v.douyin' in text or 'iesdouyin' in text:
+        return 'douyin'
+    if 'bilibili.com' in text or 'b23.tv' in text or 'bilibili' in text:
+        return 'bilibili'
+    if 'youtube.com' in text or 'youtu.be' in text:
+        return 'youtube'
+    if 'kuaishou.com' in text or 'kuaishou' in text or 'chenzhongtech' in text:
+        return 'kuaishou'
+    return None
+
+
+def _find_duplicate_task_with_fallback(video_url: str, platform: str):
+    """按指定平台查历史重复；若该平台解析不出视频 ID，
+    则按链接真实平台兜底再查一次，避免平台错选导致漏判。"""
+    video_id = extract_video_id(video_url, platform)
+    duplicate = _find_duplicate_task(video_id, video_url, platform)
+    if duplicate:
+        return duplicate
+    real_platform = _detect_url_platform(video_url)
+    if real_platform and real_platform != platform:
+        real_id = extract_video_id(video_url, real_platform)
+        if real_id:
+            return _find_duplicate_task(real_id, video_url, real_platform)
+    return None
+
+
 def _is_task_recently_enqueued(row) -> bool:
     created_at = getattr(row, 'created_at', None)
     if created_at is None:
@@ -311,7 +342,7 @@ def _history_sort_priority(item: dict) -> tuple[int, float]:
         return 0, 0.0
     if status == TaskStatus.PAUSED.value:
         return 1, 0.0
-    if status == TaskStatus.FAILED.value:
+    if status in {TaskStatus.FAILED.value, TaskStatus.RETRYABLE.value}:
         return 2, 0.0
     if status == TaskStatus.CANCELED.value:
         return 3, 0.0
@@ -440,17 +471,13 @@ def _validate_platform_video_id(video_url: str, platform: str):
 
 
 def _check_duplicate_response(data: VideoRequest):
-    duplicate = _find_duplicate_task(
-        extract_video_id(data.video_url, data.platform),
-        data.video_url,
-        data.platform,
-    )
+    duplicate = _find_duplicate_task_with_fallback(data.video_url, data.platform)
     if not duplicate or data.force_regenerate or duplicate['task_id'] == data.task_id:
         return None
 
     status = duplicate.get('status')
     result_exists = bool(duplicate.get('result_exists'))
-    if status in {TaskStatus.FAILED.value, TaskStatus.CANCELED.value} and not result_exists:
+    if status in {TaskStatus.FAILED.value, TaskStatus.CANCELED.value, TaskStatus.RETRYABLE.value} and not result_exists:
         return None
 
     return R.error(
@@ -900,17 +927,13 @@ def batch_check_duplicates(data: BatchVideoRequest):
             })
             continue
 
-        duplicate = _find_duplicate_task(
-            extract_video_id(url, data.platform),
-            url,
-            data.platform,
-        )
+        duplicate = _find_duplicate_task_with_fallback(url, data.platform)
         # 与 _check_duplicate_response 保持一致的判定：失败的且无结果的历史不视为重复
         needs_confirmation = False
         if duplicate:
             status = duplicate.get('status')
             result_exists = bool(duplicate.get('result_exists'))
-            if status in {TaskStatus.FAILED.value, TaskStatus.CANCELED.value} and not result_exists:
+            if status in {TaskStatus.FAILED.value, TaskStatus.CANCELED.value, TaskStatus.RETRYABLE.value} and not result_exists:
                 duplicate = None
             else:
                 needs_confirmation = True
@@ -1022,7 +1045,7 @@ def get_batch_status(batch_id: str):
     summary = {
         'total': len(items),
         'success': sum(1 for item in items if item['status'] == TaskStatus.SUCCESS.value),
-        'failed': sum(1 for item in items if item['status'] == TaskStatus.FAILED.value),
+        'failed': sum(1 for item in items if item['status'] in {TaskStatus.FAILED.value, TaskStatus.RETRYABLE.value}),
         'paused': sum(1 for item in items if item['status'] == TaskStatus.PAUSED.value),
         'canceled': sum(1 for item in items if item['status'] == TaskStatus.CANCELED.value),
     }
@@ -1112,7 +1135,7 @@ def cancel_batch(data: BatchActionRequest):
     rows = list_tasks_by_batch(data.batch_id)
     for row in rows:
         status, _ = _load_task_status(row.task_id)
-        if status in {TaskStatus.SUCCESS.value, TaskStatus.FAILED.value, TaskStatus.CANCELED.value}:
+        if status in {TaskStatus.SUCCESS.value, TaskStatus.FAILED.value, TaskStatus.CANCELED.value, TaskStatus.RETRYABLE.value}:
             continue
         NoteGenerator()._update_status(row.task_id, TaskStatus.CANCELED, message='批次任务已取消')
     return R.success({'batch_id': data.batch_id, 'control_state': 'CANCELED'})
@@ -1124,7 +1147,7 @@ def clear_failed_batch_tasks(data: BatchActionRequest):
     cleared_task_ids = []
     for row in rows:
         item = _build_task_item(row.task_id, row=row)
-        if item['status'] != TaskStatus.FAILED.value:
+        if item['status'] not in {TaskStatus.FAILED.value, TaskStatus.RETRYABLE.value}:
             continue
         if _delete_task_data(row.task_id):
             cleared_task_ids.append(row.task_id)
@@ -1148,7 +1171,7 @@ def retry_failed_batch_tasks(data: BatchRetryFailedRequest, background_tasks: Ba
         if target_task_id and row.task_id != target_task_id:
             continue
         item = _build_task_item(row.task_id, row=row)
-        if item['status'] != TaskStatus.FAILED.value:
+        if item['status'] not in {TaskStatus.FAILED.value, TaskStatus.RETRYABLE.value}:
             continue
         retry_request, video_url, error_reason = _build_retry_request(
             item,
@@ -1427,7 +1450,14 @@ def get_task_status(task_id: str):
             })
 
         if status == TaskStatus.FAILED.value:
-            return R.error(message or '任务失败', code=500)
+            # 失败状态也走 HTTP 200 + body 内 status 字段：
+            # 客户端轮询（useTaskPolling / 扩展 popup）按 body.status 判断，
+            # HTTP 500 会让 axios throw，轮询 catch 后状态永远停在"等待中"。
+            return R.success({
+                'status': TaskStatus.FAILED.value,
+                'message': message or '任务失败',
+                'task_id': task_id,
+            })
 
         return R.success({
             'status': status,
@@ -1438,7 +1468,11 @@ def get_task_status(task_id: str):
     if row is not None:
         fallback_status, fallback_message = _fallback_task_status(task_id, row=row)
         if fallback_status == TaskStatus.FAILED.value:
-            return R.error(fallback_message, code=500)
+            return R.success({
+                'status': TaskStatus.FAILED.value,
+                'message': fallback_message or '任务失败',
+                'task_id': task_id,
+            })
         return R.success({
             'status': fallback_status,
             'message': fallback_message,

@@ -21,7 +21,7 @@ export const useTaskPolling = (interval = 3000) => {
       await refreshHistoryList()
 
       const pendingTasks = tasksRef.current.filter(
-        task => task.status !== 'SUCCESS' && task.status !== 'FAILED'
+        task => !['SUCCESS', 'FAILED', 'RETRYABLE'].includes(task.status)
       )
 
       // 无活跃任务时跳过状态轮询，但保留上面的历史同步。
@@ -43,9 +43,9 @@ export const useTaskPolling = (interval = 3000) => {
                 audioMeta: audio_meta,
                 message: res.message,
               })
-            } else if (status === 'FAILED') {
+            } else if (status === 'FAILED' || status === 'RETRYABLE') {
               updateTaskContent(task.id, { status, message: res.message || '任务失败' })
-              console.warn(`⚠️ 任务 ${task.id} 失败`)
+              console.warn(`⚠️ 任务 ${task.id} ${status === 'RETRYABLE' ? '连接中断，可重试' : '失败'}`)
             } else {
               updateTaskContent(task.id, { status, message: res.message })
             }

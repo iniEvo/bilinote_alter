@@ -121,11 +121,25 @@ class BaseRequestModel(BaseModel):
 class DouyinDownloader(Downloader):
     def __init__(self, cookie=None):
         super().__init__()
+        self._explicit_cookie = bool(cookie)
         self.headers_config = DouyinConfig.HEADERS.copy()
         self.headers_config["Cookie"] = cookie or cfm.get('douyin')
         self.proxies_config = DouyinConfig.PROXIES.copy()
         self.ttwid_config = DouyinConfig.TTWID.copy()
         self.ms_token_config = DouyinConfig.MS_TOKEN.copy()
+
+    def _refresh_cookie(self) -> None:
+        """每次请求前从配置文件读取最新 Cookie（配置更新后无需重启后端即生效）。
+
+        SUPPORT_PLATFORM_MAP 中的下载器是进程级单例，__init__ 只执行一次；
+        若用户更新了 Cookie 配置，不刷新会一直用进程启动时的旧 Cookie，
+        导致重试/重新生成仍 403「Cookie 已失效」。
+        """
+        if self._explicit_cookie:
+            return
+        fresh = cfm.get('douyin')
+        if fresh:
+            self.headers_config["Cookie"] = fresh
 
     def _build_cookiefile(self) -> Optional[str]:
         cookie = self.headers_config.get('Cookie')
@@ -255,7 +269,7 @@ class DouyinDownloader(Downloader):
 
     def fetch_video_info(self, video_url: str) -> json:
         try:
-
+            self._refresh_cookie()
             aweme_id = self.extract_video_id(video_url)
             kwargs = self.headers_config
             base_params = BaseRequestModel().model_dump()
@@ -335,6 +349,7 @@ class DouyinDownloader(Downloader):
         if not output_dir:
             output_dir = self.cache_data
         os.makedirs(output_dir, exist_ok=True)
+        self._refresh_cookie()
 
         # A previous interrupted run may already have downloaded the audio.
         # Reuse it before calling Douyin detail, which can reject old videos.
@@ -418,6 +433,7 @@ class DouyinDownloader(Downloader):
         if not output_dir:
             output_dir = self.cache_data
         os.makedirs(output_dir, exist_ok=True)
+        self._refresh_cookie()
 
         video_id = self.extract_video_id(video_url)
         video_path = os.path.join(output_dir, f"{video_id}.mp4")

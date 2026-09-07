@@ -33,7 +33,7 @@ const ProviderCard: FC<IProviderCardProps> = ({ providerName, Icon, id }: IProvi
       onKeyDown={handleKeyDown}
       onClick={handleClick}
       className={
-        'flex h-14 cursor-pointer items-center justify-between rounded-xl border p-2 transition-[background-color,border-color,color] hover:border-blue-200 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50' +
+        'flex h-14 cursor-pointer items-center justify-between rounded-xl border px-2 py-3 transition-[background-color,border-color,color] hover:border-blue-200 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50' +
         (isActive ? ' border-blue-200 bg-blue-50 font-medium text-blue-700' : ' border-slate-200')
       }
     >

@@ -15,21 +15,28 @@ const STAGE_LABELS: Record<TaskStatus, string> = {
   SAVING: '保存中',
   SUCCESS: '完成',
   FAILED: '失败',
+  RETRYABLE: '可重试',
 }
 
 const currentIdx = computed(() => STAGE_ORDER.indexOf(props.status))
 const isFailed = computed(() => props.status === 'FAILED')
+const isRetryable = computed(() => props.status === 'RETRYABLE')
 </script>
 
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex items-center gap-2 text-sm">
-      <span :class="isFailed ? 'text-red-600' : 'text-blue-600'" class="font-medium">
+      <span
+        :class="isFailed ? 'text-red-600' : (isRetryable ? 'text-amber-600' : 'text-blue-600')"
+        class="font-medium"
+      >
         {{ STAGE_LABELS[status] }}
       </span>
       <span v-if="message" class="text-gray-500 text-xs truncate">{{ message }}</span>
     </div>
-    <div v-if="!isFailed" class="flex gap-1">
+    <div v-if="isFailed" class="h-1 rounded-full bg-red-500" />
+    <div v-else-if="isRetryable" class="h-1 rounded-full bg-amber-500" />
+    <div v-else class="flex gap-1">
       <div
         v-for="(s, i) in STAGE_ORDER"
         :key="s"
@@ -37,6 +44,5 @@ const isFailed = computed(() => props.status === 'FAILED')
         :class="i <= currentIdx ? 'bg-blue-500' : 'bg-gray-200'"
       />
     </div>
-    <div v-else class="h-1 rounded-full bg-red-500" />
   </div>
 </template>

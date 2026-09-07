@@ -1,5 +1,5 @@
 import React, { FC, useRef, useState } from 'react'
-import { SlidersHorizontal, PanelLeftClose, PanelLeftOpen, History as HistoryIcon } from 'lucide-react'
+import { SlidersHorizontal, PanelLeftClose, PanelLeftOpen, History as HistoryIcon, Search as SearchIcon } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +10,7 @@ import {
 import { Link } from 'react-router-dom'
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from '@/components/ui/resizable'
 import type { ImperativePanelHandle } from 'react-resizable-panels'
+import { Input } from '@/components/ui/input.tsx'
 import logo from '@/assets/icon.svg'
 
 interface IProps {
@@ -18,11 +19,15 @@ interface IProps {
   History: React.ReactNode
 }
 
+interface HistoryPanelProps {
+  searchValue?: string
+}
+
 const panelShellClass =
-  'relative z-10 flex h-full flex-col overflow-hidden border border-white/60 bg-white/82 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl'
+  'relative z-10 flex h-full flex-col overflow-hidden border border-white/60 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.07)] backdrop-blur-xl'
 
 const iconButtonClass =
-  'cursor-pointer rounded-xl border border-transparent p-2 text-slate-500 transition-[color,border-color,background-color,box-shadow] hover:border-blue-100 hover:bg-white hover:text-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+  'cursor-pointer rounded-xl border border-transparent p-2 text-slate-500 transition-[color,border-color,background-color,box-shadow] hover:border-blue-100 hover:bg-white hover:text-primary hover:shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
 
 const collapsedButtonClass =
   'relative z-20 flex h-full w-10 shrink-0 items-center justify-center border-r border-white/50 bg-white/70 backdrop-blur-xl transition-colors hover:bg-white/90'
@@ -30,8 +35,13 @@ const collapsedButtonClass =
 const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
   const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false)
+  const [historySearch, setHistorySearch] = useState('')
   const leftPanelRef = useRef<ImperativePanelHandle>(null)
   const middlePanelRef = useRef<ImperativePanelHandle>(null)
+
+  const historyNode = React.isValidElement(History)
+    ? React.cloneElement(History as React.ReactElement<HistoryPanelProps>, { searchValue: historySearch })
+    : History
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-slate-950">
@@ -42,24 +52,13 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_35%),linear-gradient(135deg,#eef4ff_0%,#f7f9fc_42%,#eef2ff_100%)]" />
       </div>
 
-      <div className="relative z-10 flex items-center justify-between border-b border-white/40 bg-white/55 px-5 py-3 backdrop-blur-xl">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-[0.32em] text-slate-500">AI Video Notes Studio</div>
-          <div className="mt-1 text-2xl font-semibold text-slate-900">把视频快速整理成更好读的结构化笔记</div>
-        </div>
-        <div className="hidden items-center gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-2 text-sm text-slate-600 shadow-sm backdrop-blur md:flex">
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" aria-hidden="true" />
-          支持单条、批量与本地视频生成
-        </div>
-      </div>
-
       <div className="relative z-10 flex-1 overflow-hidden p-3 md:p-4">
         <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3 overflow-hidden">
           <ResizablePanel
             ref={leftPanelRef}
-            defaultSize={23}
-            minSize={14}
-            maxSize={35}
+            defaultSize={18}
+            minSize={12}
+            maxSize={30}
             collapsible
             collapsedSize={0}
             onCollapse={() => setIsLeftCollapsed(true)}
@@ -69,12 +68,12 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
               <header className="border-b border-slate-100/80 px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-indigo-500 p-2 shadow-lg shadow-blue-500/20">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-indigo-500 p-2 shadow-lg shadow-blue-500/20 transition-transform duration-200 hover:scale-105">
                       <img src={logo} alt="logo" className="h-full w-full object-contain" />
                     </div>
                     <div>
-                      <div className="text-xl font-semibold text-slate-900">BiliNote</div>
-                      <div className="mt-1 text-sm text-slate-500">配置输入源、模型和生成偏好</div>
+                      <div className="text-xl font-semibold tracking-tight text-slate-900">BiliNote</div>
+                      <div className="mt-0.5 text-sm text-slate-500">配置输入源、模型和生成偏好</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -150,8 +149,11 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
               <header className="border-b border-slate-100/80 px-4 py-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">生成历史</div>
-                    <div className="mt-1 text-xs text-slate-500">快速回看单次与批量任务</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-slate-900">
+                      <HistoryIcon className="h-4 w-4 text-blue-500" aria-hidden="true" />
+                      生成历史
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500">快速回看单次与批量任务</div>
                   </div>
                   <TooltipProvider>
                     <Tooltip>
@@ -170,9 +172,19 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                     </Tooltip>
                   </TooltipProvider>
                 </div>
+                {/* 搜索框 */}
+                <div className="relative mt-3">
+                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <Input
+                    value={historySearch}
+                    onChange={e => setHistorySearch(e.target.value)}
+                    placeholder="搜索笔记标题或项目名称"
+                    className="h-9 rounded-xl border-slate-200/80 bg-slate-50/70 pl-9 text-xs shadow-none transition-[border-color,background-color,box-shadow] focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
               </header>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pt-2.5 pb-4">
-                {History}
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pt-3 pb-4">
+                {historyNode}
               </div>
             </aside>
           </ResizablePanel>

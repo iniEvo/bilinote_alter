@@ -83,8 +83,8 @@ export default function Artifacts() {
     const totalSize = artifacts.reduce((sum, a) => sum + a.size_bytes, 0)
 
     return (
-        <ScrollArea className="h-full overflow-y-auto bg-white">
-            <div className="container mx-auto px-4 py-8">
+        <ScrollArea className="h-full overflow-y-auto bg-transparent">
+            <div className="container mx-auto px-6 py-8">
                 {/* Header */}
                 <div className="mb-8 flex items-center justify-between">
                     <div>

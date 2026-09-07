@@ -460,12 +460,17 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
   }
 
   if (status === 'failed' && !isMultiVersion) {
+    const isRetryable = String(currentTask?.status || '').toUpperCase() === 'RETRYABLE'
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4 space-y-3">
         <Error />
         <div className="text-center">
-          <p className="text-lg font-bold text-red-500">笔记生成失败</p>
-          <p className="mt-2 mb-2 text-xs text-red-400">请检查后台或稍后再试</p>
+          <p className={`text-lg font-bold ${isRetryable ? 'text-amber-500' : 'text-red-500'}`}>
+            {isRetryable ? '网络连接中断，笔记未完成' : '笔记生成失败'}
+          </p>
+          <p className={`mt-2 mb-2 text-xs ${isRetryable ? 'text-amber-400' : 'text-red-400'}`}>
+            {isRetryable ? '这是瞬时网络错误，可直接重试' : '请检查后台或稍后再试'}
+          </p>
 
           <Button onClick={() => handleRegenerate(currentTask.id)} size="lg">
             重试

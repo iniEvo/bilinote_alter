@@ -14,6 +14,24 @@ import MenuBar, { IMenuProps } from '@/pages/SettingPage/components/menuBar.tsx'
 const Menu = () => {
   const menuList: IMenuProps[] = [
     {
+      id: 'batch',
+      name: '批量任务',
+      icon: <FileStack />,
+      path: '/settings/batch',
+    },
+    {
+      id: 'output',
+      name: '存储位置',
+      icon: <FolderOutput />,
+      path: '/settings/output',
+    },
+    {
+      id: 'manual',
+      name: '手动功能',
+      icon: <Wrench />,
+      path: '/settings/manual',
+    },
+    {
       id: 'model',
       name: 'AI 模型设置',
       icon: <BotMessageSquare />,
@@ -31,12 +49,6 @@ const Menu = () => {
       icon: <HardDriveDownload />,
       path: '/settings/download',
     },
-    {
-      id: 'output',
-      name: '存储位置',
-      icon: <FolderOutput />,
-      path: '/settings/output',
-    },
     // //其他配置
     // {
     //   id: 'prompt',
@@ -44,18 +56,6 @@ const Menu = () => {
     //   icon: <SquareChevronRight />,
     //   path: '/settings/prompt',
     // },
-    {
-      id: 'batch',
-      name: '批量任务',
-      icon: <FileStack />,
-      path: '/settings/batch',
-    },
-    {
-      id: 'manual',
-      name: '手动功能',
-      icon: <Wrench />,
-      path: '/settings/manual',
-    },
     {
       id: 'monitor',
       name: '部署监控',
@@ -83,11 +83,11 @@ const Menu = () => {
   ]
   return (
     <div className="flex h-full flex-col">
-      <div className={'flex w-full flex-col gap-2'}>
-        <h1 className="text-2xl font-medium">设置</h1>
-        <p className="text-sm font-light text-slate-600">全局配置与模型设置</p>
+      <div className={'flex w-full flex-col gap-1.5'}>
+        <h1 className="text-2xl font-semibold text-slate-900">设置</h1>
+        <p className="text-sm font-light text-slate-500">全局配置与模型设置</p>
       </div>
-      <div className="mt-6 flex-1">
+      <div className="mt-6 flex-1 space-y-1">
         {menuList &&
           menuList.map(item => {
             return <MenuBar key={item.id} menuItem={item} />

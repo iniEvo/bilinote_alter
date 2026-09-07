@@ -32,6 +32,20 @@ class BilibiliDownloader(Downloader, ABC):
         self._cookie = self._cookie_mgr.get('bilibili')
         self._cookiefile = self._write_netscape_cookie_file()
 
+    def _refresh_cookie(self) -> None:
+        """每次请求前从配置文件读取最新 Cookie（配置更新后无需重启后端即生效）。
+
+        SUPPORT_PLATFORM_MAP 中的下载器是进程级单例，__init__ 只执行一次；
+        若用户更新了 Cookie 配置，不刷新会一直用进程启动时的旧 Cookie。
+        """
+        fresh = self._cookie_mgr.get('bilibili')
+        if not fresh or fresh == self._cookie:
+            return
+        if self._cookiefile and os.path.exists(self._cookiefile):
+            os.remove(self._cookiefile)
+        self._cookie = fresh
+        self._cookiefile = self._write_netscape_cookie_file()
+
     def _write_netscape_cookie_file(self) -> Optional[str]:
         """将 Cookie 写入 Netscape 格式临时文件，返回文件路径（供 yt-dlp cookiefile 使用）"""
         if not self._cookie:
@@ -61,6 +75,7 @@ class BilibiliDownloader(Downloader, ABC):
         if not output_dir:
             output_dir=self.cache_data
         os.makedirs(output_dir, exist_ok=True)
+        self._refresh_cookie()
 
         video_id = extract_video_id(video_url, "bilibili")
         cached_audio_path = os.path.join(output_dir, f"{video_id}.mp3") if video_id else None
@@ -152,6 +167,7 @@ class BilibiliDownloader(Downloader, ABC):
         if output_dir is None:
             output_dir = get_data_dir()
         os.makedirs(output_dir, exist_ok=True)
+        self._refresh_cookie()
         print("video_url",video_url)
         video_id=extract_video_id(video_url, "bilibili")
         video_path = os.path.join(output_dir, f"{video_id}.mp4")
@@ -205,6 +221,7 @@ class BilibiliDownloader(Downloader, ABC):
         :param langs: 优先语言列表
         :return: TranscriptResult 或 None
         """
+        self._refresh_cookie()
         # 1) 优先走 B 站官方 player API（直拉，无需下视频；AI 字幕需 SESSDATA cookie）
         try:
             result = BilibiliSubtitleFetcher().fetch_subtitles(video_url)

@@ -17,7 +17,8 @@ const mindMapRef = ref<{ toPngBlob: () => Promise<Blob> } | null>(null)
 
 const isDone = computed(() => activeTask.value?.status === 'SUCCESS')
 const isFailed = computed(() => activeTask.value?.status === 'FAILED')
-const isRunning = computed(() => !!activeTask.value && !isDone.value && !isFailed.value)
+const isRetryable = computed(() => activeTask.value?.status === 'RETRYABLE')
+const isRunning = computed(() => !!activeTask.value && !isDone.value && !isFailed.value && !isRetryable.value)
 
 const STAGE_LABELS: Record<string, string> = {
   PENDING: '排队中',
@@ -29,6 +30,7 @@ const STAGE_LABELS: Record<string, string> = {
   SAVING: '保存中',
   SUCCESS: '完成',
   FAILED: '失败',
+  RETRYABLE: '可重试',
 }
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null
@@ -47,7 +49,7 @@ async function poll(taskId: string) {
         title: cur.title || getTaskDisplayTitle(cur),
       })
     }
-    if (res.status !== 'SUCCESS' && res.status !== 'FAILED')
+    if (!['SUCCESS', 'FAILED', 'RETRYABLE'].includes(res.status))
       pollTimer = setTimeout(() => poll(taskId), 3000)
   }
   catch (e) {
@@ -64,7 +66,7 @@ function selectTask(id: string) {
   activeTaskId.value = id
   showHistory.value = false
   const t = tasks.value?.find(x => x.taskId === id)
-  if (t && t.status !== 'SUCCESS' && t.status !== 'FAILED')
+  if (t && !['SUCCESS', 'FAILED', 'RETRYABLE'].includes(t.status))
     poll(id)
 }
 
@@ -147,7 +149,7 @@ onMounted(async () => {
   const latest = tasks.value?.[0]
   if (latest) {
     activeTaskId.value = latest.taskId
-    if (latest.status !== 'SUCCESS' && latest.status !== 'FAILED')
+    if (!['SUCCESS', 'FAILED', 'RETRYABLE'].includes(latest.status))
       poll(latest.taskId)
   }
 })
@@ -234,6 +236,11 @@ onUnmounted(() => {
           :title="activeTask.message"
         >失败</span>
         <span
+          v-else-if="isRetryable"
+          class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0"
+          :title="activeTask.message"
+        >可重试</span>
+        <span
           v-else
           class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 shrink-0 animate-pulse"
         >{{ STAGE_LABELS[activeTask.status] || activeTask.status }}</span>
@@ -310,6 +317,9 @@ onUnmounted(() => {
         />
         <div v-else-if="isFailed" class="p-4 text-sm text-red-600">
           {{ activeTask.message || '任务失败' }}
+        </div>
+        <div v-else-if="isRetryable" class="p-4 text-sm text-amber-600">
+          {{ activeTask.message || '连接中断，任务可重试' }}
         </div>
       </div>
     </section>

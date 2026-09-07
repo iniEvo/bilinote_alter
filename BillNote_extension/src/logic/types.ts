@@ -12,6 +12,7 @@ export type TaskStatus =
   | 'SAVING'
   | 'SUCCESS'
   | 'FAILED'
+  | 'RETRYABLE'
 
 export interface Provider {
   id: string

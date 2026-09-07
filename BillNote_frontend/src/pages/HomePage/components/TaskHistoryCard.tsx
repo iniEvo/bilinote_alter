@@ -42,6 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   SAVING: '保存中',
   SUCCESS: '已完成',
   FAILED: '失败',
+  RETRYABLE: '可重试',
 }
 
 const statusClassName = (status: string) => {
@@ -49,6 +50,8 @@ const statusClassName = (status: string) => {
     return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
   if (status === 'FAILED')
     return 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'
+  if (status === 'RETRYABLE')
+    return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
   if (status === 'CANCELED')
     return 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'
   if (status === 'PAUSED')
@@ -77,7 +80,8 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
     : isLocal
       ? coverURL
       : `${baseURL}/image_proxy?url=${encodeURIComponent(coverURL)}`
-  const isRunning = !['SUCCESS', 'FAILED', 'CANCELED', 'PAUSED'].includes(status)
+  const isTerminal = ['SUCCESS', 'FAILED', 'CANCELED', 'PAUSED', 'RETRYABLE'].includes(status)
+  const isRunning = !isTerminal
 
   const handleOpenProjectDialog = async () => {
     setSelectedProjectId('')
@@ -197,11 +201,11 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
           onSelect(task.id)
         }}
         className={cn(
-          'group min-w-0 flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white/88 p-2.5 shadow-sm transition-[transform,border-color,box-shadow,background-color] hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+          'group min-w-0 flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm transition-[border-color,background-color] hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
           selected && 'border-blue-300 bg-blue-50/70 shadow-md ring-2 ring-blue-100',
         )}
       >
-        <div className="flex min-w-0 items-start gap-2.5">
+        <div className="flex min-w-0 items-start gap-3">
           {showCover && (
             <img
               data-fallback={coverSrc === '/placeholder.png' ? 'true' : undefined}
@@ -220,21 +224,12 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
 
           <div className="min-w-0 flex-1 overflow-hidden">
             <div className="flex items-start justify-between gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="line-clamp-2 flex-1 break-words text-sm font-medium leading-5 text-slate-800">
-                      {title}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{title}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="line-clamp-2 flex-1 break-words text-sm font-medium leading-5 text-slate-800">
+                {title}
+              </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {status === 'FAILED' && onRetry && (
+                {(status === 'FAILED' || status === 'RETRYABLE') && onRetry && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -317,12 +312,16 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
                 {videoURL}
               </a>
             )}
-            {status === 'FAILED' && task.message?.trim() && (
+            {(status === 'FAILED' || status === 'RETRYABLE') && task.message?.trim() && (
               <TooltipProvider delayDuration={150}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <p className="mt-1 line-clamp-2 cursor-help text-[11px] text-rose-600">
-                      失败原因：{task.message.trim()}
+                    <p className={cn(
+                      'mt-1 line-clamp-2 cursor-help text-[11px]',
+                      status === 'RETRYABLE' ? 'text-amber-600' : 'text-rose-600',
+                    )}
+                    >
+                      {status === 'RETRYABLE' ? '中断原因：' : '失败原因：'}{task.message.trim()}
                     </p>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-md whitespace-pre-wrap break-words text-xs leading-5">
@@ -332,9 +331,12 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
               </TooltipProvider>
             )}
 
-            <div className="mt-2.5 flex min-w-0 flex-wrap items-center justify-between gap-1.5 text-[11px] text-slate-500">
-              <div className={cn('inline-flex min-w-0 max-w-full items-center gap-1 rounded-full px-2 py-1 font-medium', statusClassName(status))}>
-                {isRunning && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
+            <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-1.5 text-[11px] text-slate-500">
+              <div className={cn('inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 font-medium tabular-nums', statusClassName(status))}>
+                {isRunning && <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+                </span>}
                 <span className="truncate">{STATUS_LABELS[status] || '处理中'}</span>
               </div>
               <span className="max-w-full truncate text-slate-400">{platform}</span>

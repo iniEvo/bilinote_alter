@@ -9,6 +9,7 @@ import {
   Check,
   X,
   Trash,
+  Plus,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -42,6 +43,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
   const removeBatchGroup = useTaskStore(state => state.removeBatchGroup)
   const removeTask = useTaskStore(state => state.removeTask)
   const renameBatch = useTaskStore(state => state.renameBatch)
+  const createEmptyProject = useTaskStore(state => state.createEmptyProject)
   const focusedBatchId = useTaskStore(state => state.focusedBatchId)
   const setFocusedBatch = useTaskStore(state => state.setFocusedBatch)
   const [expandedIds, setExpandedIds] = useState<string[]>([])
@@ -54,6 +56,9 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
   const [nameInput, setNameInput] = useState('')
   const [groupPage, setGroupPage] = useState(1)
   const [taskPages, setTaskPages] = useState<Record<string, number>>({})
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const normalizedSearch = searchValue.trim().toLocaleLowerCase()
@@ -120,11 +125,69 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
     ? (pendingDeleteTask?.audioMeta.title || pendingDeleteTask?.formData.video_url || getFallbackTaskTitle(pendingDeleteTaskId))
     : null
 
-  if (batchGroups.length === 0)
-    return null
+  if (batchGroups.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex shrink-0 items-center justify-between text-sm font-semibold text-slate-900">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <Layers3 className="h-4 w-4" />
+            </div>
+            <span>项目</span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 rounded-xl text-xs font-medium"
+            onClick={() => { setNewProjectName(''); setIsCreateDialogOpen(true) }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            新建项目
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 py-10 text-center text-sm text-slate-400">
+          <Layers3 className="mb-2 h-8 w-8 text-slate-300" />
+          暂无项目
+          <Button
+            type="button"
+            size="sm"
+            variant="link"
+            className="mt-1 text-xs text-blue-500"
+            onClick={() => { setNewProjectName(''); setIsCreateDialogOpen(true) }}
+          >
+            点击新建
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
-  if (visibleGroups.length === 0)
-    return <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-3 py-6 text-center text-sm text-slate-500">当前搜索下暂无项目</div>
+  if (visibleGroups.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex shrink-0 items-center justify-between text-sm font-semibold text-slate-900">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <Layers3 className="h-4 w-4" />
+            </div>
+            <span>项目</span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 rounded-xl text-xs font-medium"
+            onClick={() => { setNewProjectName(''); setIsCreateDialogOpen(true) }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            新建项目
+          </Button>
+        </div>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-3 py-6 text-center text-sm text-slate-500">当前搜索下暂无项目</div>
+      </div>
+    )
+  }
 
   const totalGroupPages = Math.max(1, Math.ceil(visibleGroups.length / BATCH_GROUP_PAGE_SIZE))
   const currentGroupPage = Math.min(groupPage, totalGroupPages)
@@ -132,6 +195,59 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
 
   return (
     <>
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => { if (!open && !isCreatingProject) setIsCreateDialogOpen(false) }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建项目</DialogTitle>
+            <DialogDescription>创建一个空项目分组，之后可把笔记移入其中。</DialogDescription>
+          </DialogHeader>
+          <input
+            type="text"
+            autoFocus
+            value={newProjectName}
+            onChange={e => setNewProjectName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && newProjectName.trim() && !isCreatingProject) {
+                setIsCreatingProject(true)
+                const id = createEmptyProject(newProjectName)
+                setFocusedBatch(id)
+                setExpandedIds(state => [...state, id])
+                setNewProjectName('')
+                setIsCreateDialogOpen(false)
+                setIsCreatingProject(false)
+                toast.success('项目已创建')
+              }
+            }}
+            placeholder="输入项目名称"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-blue-300 focus:ring-3 focus:ring-blue-100"
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={isCreatingProject} onClick={() => setIsCreateDialogOpen(false)}>取消</Button>
+            <Button
+              type="button"
+              disabled={!newProjectName.trim() || isCreatingProject}
+              onClick={() => {
+                if (!newProjectName.trim() || isCreatingProject)
+                  return
+                setIsCreatingProject(true)
+                const id = createEmptyProject(newProjectName)
+                setFocusedBatch(id)
+                setExpandedIds(state => [...state, id])
+                setNewProjectName('')
+                setIsCreateDialogOpen(false)
+                setIsCreatingProject(false)
+                toast.success('项目已创建')
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={!!pendingDeleteTaskId}
         onOpenChange={(open) => {
@@ -214,14 +330,26 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
         </DialogContent>
       </Dialog>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-        <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-900">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-            <Layers3 className="h-4 w-4" />
+        <div className="flex shrink-0 items-center justify-between text-sm font-semibold text-slate-900">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <Layers3 className="h-4 w-4" />
+            </div>
+            <span>项目</span>
           </div>
-          <span>项目</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 rounded-xl text-xs font-medium"
+            onClick={() => { setNewProjectName(''); setIsCreateDialogOpen(true) }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            新建项目
+          </Button>
         </div>
 
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3">
         {paginatedGroups.map(group => {
           const isExpanded = expandedIds.includes(group.id)
           const remoteItems = getBatchItems(group.id)
@@ -242,7 +370,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
             if (filter === 'success')
               return task.status === 'SUCCESS'
             if (filter === 'failed')
-              return task.status === 'FAILED'
+              return task.status === 'FAILED' || task.status === 'RETRYABLE'
             return true
           })
           const groupLabel = group.name
@@ -257,10 +385,10 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                 cardRefs.current[group.id] = node
               }}
               className={cn(
-                'min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm transition-all',
+                'min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 p-3.5 shadow-sm transition-all',
                 focusedBatchId === group.id
                   ? 'border-blue-300 bg-blue-50/80 shadow-md ring-2 ring-blue-100'
-                  : 'hover:border-blue-200 hover:shadow-md',
+                  : 'hover:-translate-y-px hover:border-blue-200 hover:shadow-md',
               )}
             >
               <div
@@ -416,7 +544,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                       </div>
                     )}
 
-                    <div className="min-h-0 max-h-80 flex-1 space-y-2 overflow-y-auto pr-1">
+                    <div className="min-h-0 max-h-[30rem] flex-1 space-y-2.5 overflow-y-auto pr-1">
                     {paginatedItems.map(task => (
                       <TaskHistoryCard
                         key={task.id}
@@ -424,7 +552,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                         selected={selectedId === task.id}
                         onSelect={onSelect}
                         onDelete={setPendingDeleteTaskId}
-                        onRetry={task.status === 'FAILED' ? retryTask : undefined}
+                        onRetry={['FAILED', 'RETRYABLE'].includes(task.status) ? retryTask : undefined}
                       />
                     ))}
                     </div>

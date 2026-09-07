@@ -14,13 +14,12 @@ import type { FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-import { Info, Loader2, Plus, X } from 'lucide-react'
+import { Info, Loader2, Plus, Upload, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx'
 import {
   generateNote,
   generateNotesBatch,
   getHistoryTask,
-  getAllBatches,
   type BatchTaskItem,
   type DuplicateTaskInfo,
   type GenerateBatchPayload,
@@ -74,6 +73,7 @@ const KNOWN_TASK_STATUSES = new Set<TaskStatus>([
   'SAVING',
   'SUCCESS',
   'FAILED',
+  'RETRYABLE',
 ])
 
 const formSchema = z
@@ -136,8 +136,9 @@ export type NoteFormValues = z.infer<typeof formSchema>
 
 const SectionHeader = ({ title, tip }: { title: string, tip?: string }) => (
   <div className="mb-3 flex items-center justify-between gap-3">
-    <div>
-      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+    <div className="flex items-center gap-2">
+      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" aria-hidden="true" />
+      <h2 className="text-sm font-semibold tracking-tight text-slate-900">{title}</h2>
     </div>
     {tip && (
       <TooltipProvider>
@@ -146,7 +147,7 @@ const SectionHeader = ({ title, tip }: { title: string, tip?: string }) => (
             <button
               type="button"
               aria-label={`${title}说明`}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-[color,background-color] hover:bg-blue-50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-[color,background-color,transform] hover:bg-blue-50 hover:text-primary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <Info className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -172,12 +173,12 @@ const CheckboxGroup = ({
       <label
         key={v}
         className={[
-          'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-[border-color,background-color,color,box-shadow]',
+          'inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-[border-color,background-color,color,box-shadow,transform] active:scale-[0.97]',
           disabledMap[v]
             ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
             : value.includes(v)
-              ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm'
-              : 'cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/50 has-focus-visible:ring-2 has-focus-visible:ring-ring/50',
+              ? 'border-blue-300 bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100'
+              : 'border-slate-200 bg-white text-slate-600 hover:-translate-y-px hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-sm has-focus-visible:ring-2 has-focus-visible:ring-ring/50',
         ].join(' ')}
       >
         <Checkbox
@@ -222,6 +223,7 @@ const NoteForm = () => {
     retryTask,
     upsertHistoryTask,
     updateTaskContent,
+    fetchAllBatches,
   } = useTaskStore()
   const { loadEnabledModels, modelList } = useModelStore()
   const uniqueModels = useMemo(
@@ -263,13 +265,13 @@ const NoteForm = () => {
 
   useEffect(() => {
     let active = true
-    getAllBatches()
+    fetchAllBatches()
       .then((list) => {
         if (active) setProjects(Array.isArray(list) ? list as Array<{ batch_id: string, batch_name: string }> : [])
       })
       .catch(() => {})
     return () => { active = false }
-  }, [])
+  }, [fetchAllBatches])
 
   useEffect(() => {
     if (uniqueModels.length === 0)
@@ -309,7 +311,7 @@ const NoteForm = () => {
   }, [currentTask, currentTaskId, uniqueModels, form])
 
   const activeTask = keepFormDraft ? null : getCurrentTask()
-  const generating = !['SUCCESS', 'FAILED', undefined].includes(activeTask?.status)
+  const generating = !['SUCCESS', 'FAILED', 'RETRYABLE', undefined].includes(activeTask?.status)
 
   const handleFileUpload = async (file: File, cb: (url: string) => void) => {
     const formData = new FormData()
@@ -531,7 +533,7 @@ const NoteForm = () => {
       && allUrls.length <= 1
       && retryVideoUrl
       && retryVideoUrl === currentStoreTask.formData.video_url
-      && ['PENDING', 'FAILED', 'PAUSED', 'CANCELED', 'SUCCESS'].includes(currentStoreTask.status),
+      && ['PENDING', 'FAILED', 'RETRYABLE', 'PAUSED', 'CANCELED', 'SUCCESS'].includes(currentStoreTask.status),
     )
 
     setIsSubmitting(true)
@@ -929,7 +931,7 @@ const NoteForm = () => {
       )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-cyan-50 p-3.5 shadow-sm">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-cyan-50 p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-slate-900">创建新笔记</div>
@@ -946,7 +948,7 @@ const NoteForm = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
             <SectionHeader title="项目" tip="将笔记放入已有项目，或新建一个项目" />
             <div className="flex items-center gap-2">
               <Select value={selectedBatchId} onValueChange={(v) => {
@@ -984,8 +986,8 @@ const NoteForm = () => {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
-            <SectionHeader title="视频链接" tip="支持单条或批量输入，批量模式每行一个链接" />
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
+            <SectionHeader title="视频链接" />
             <div className="flex gap-2">
               <FormField
                 control={form.control}
@@ -1019,13 +1021,25 @@ const NoteForm = () => {
               name="video_url"
               render={({ field }) => (
                 <FormItem className="mt-2">
-                  <Input
-                    disabled={!!editing && batchCount === 0}
-                    placeholder={platform === 'local' ? '请输入本地视频路径，如 /Users/xxx/video.mp4' : '粘贴视频链接，如 https://b23.tv/…'}
-                    aria-label="视频链接"
-                    className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Input
+                      disabled={!!editing && batchCount === 0}
+                      placeholder={platform === 'local' ? '请输入本地视频路径，如 /Users/xxx/video.mp4' : '粘贴视频链接，如 https://b23.tv/…'}
+                      aria-label="视频链接"
+                      className="h-11 rounded-xl border-slate-200 bg-white pr-10 shadow-sm transition-[border-color,box-shadow] focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                      {...field}
+                    />
+                    {field.value?.trim() && (
+                      <button
+                        type="button"
+                        aria-label="清空视频链接"
+                        className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-[color,background-color,transform] hover:bg-rose-100 hover:text-rose-500 active:scale-90"
+                        onClick={() => field.onChange('')}
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                   <FormMessage style={{ display: 'none' }} />
                 </FormItem>
               )}
@@ -1042,7 +1056,7 @@ const NoteForm = () => {
                       tabIndex={isUploading ? -1 : 0}
                       aria-label="上传本地视频：拖拽文件到这里，或按回车键选择文件"
                       aria-disabled={isUploading}
-                      className="mt-3 flex h-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/70 transition-[border-color,background-color] hover:border-primary hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      className="group mt-3 flex h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/70 transition-[border-color,background-color,transform] hover:-translate-y-0.5 hover:border-primary hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       onDragOver={e => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -1074,10 +1088,13 @@ const NoteForm = () => {
                             handleFileUpload(file, field.onChange)
                         }}
                       />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-500 shadow-sm transition-transform group-hover:scale-110">
+                        <Upload className="h-5 w-5" aria-hidden="true" />
+                      </div>
                       {isUploading
                         ? <p className="text-center text-sm text-blue-500">上传中，请稍候…</p>
                         : uploadSuccess
-                          ? <p className="text-center text-sm text-green-600">上传成功</p>
+                          ? <p className="text-center text-sm font-medium text-green-600">上传成功</p>
                           : (
                               <p className="text-center text-sm text-slate-500">
                                 拖拽视频文件到这里上传 <br />
@@ -1162,7 +1179,7 @@ const NoteForm = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
             <SectionHeader title="视频理解" tip="将视频截图发给多模态模型辅助分析" />
             <div className="flex flex-col gap-3">
               <FormField
@@ -1170,7 +1187,7 @@ const NoteForm = () => {
               name="video_understanding"
               render={() => (
                 <FormItem>
-                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50/80 to-white px-4 py-3 transition-colors hover:border-blue-200">
                     <div>
                       <FormLabel className="text-sm font-medium text-slate-800">启用视频理解</FormLabel>
                       <p className="mt-1 text-xs text-slate-500">让多模态模型结合截图辅助理解视频内容</p>
@@ -1263,7 +1280,7 @@ const NoteForm = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
             <FormField
               control={form.control}
               name="format"
@@ -1284,14 +1301,14 @@ const NoteForm = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
             <FormField
               control={form.control}
               name="extras"
               render={({ field }) => (
                 <FormItem>
                   <SectionHeader title="备注" tip="可在 Prompt 结尾附加自定义说明" />
-                  <Textarea className="min-h-28 rounded-2xl border-slate-200 bg-slate-50/70 shadow-inner" placeholder="笔记需要罗列出 xxx 关键点…" aria-label="备注" {...field} />
+                  <Textarea className="min-h-28 rounded-2xl border-slate-200 bg-white/90 shadow-sm transition-[border-color,box-shadow] hover:border-blue-200 focus:border-blue-400 focus:ring-4 focus:ring-blue-100" placeholder="笔记需要罗列出 xxx 关键点…" aria-label="备注" {...field} />
                   <FormMessage />
                 </FormItem>
               )}

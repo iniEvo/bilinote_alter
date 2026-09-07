@@ -12,9 +12,22 @@ html, body, #root {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 24%),
-    radial-gradient(circle at right center, rgba(34, 211, 238, 0.14), transparent 18%),
-    linear-gradient(135deg, #eef4ff 0%, #f8fbff 42%, #eef2ff 100%);
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 26%),
+    radial-gradient(circle at right center, rgba(34, 211, 238, 0.13), transparent 20%),
+    radial-gradient(circle at bottom left, rgba(129, 140, 248, 0.1), transparent 24%),
+    linear-gradient(135deg, #edf3ff 0%, #f8fbff 42%, #eef2ff 100%);
+  background-attachment: fixed;
+}
+
+/* 全站微噪点纹理：为浅色背景增加质感，避免大面积纯色显得单薄 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
 /* 触屏设备：消除双击缩放延迟与点击高亮 */
@@ -25,7 +38,8 @@ button, a, [role='button'] {
 
 /* 修改滚动条轨道颜色 */
 ::-webkit-scrollbar {
-  width: 8px; /* 控制滚动条的宽度 */
+  width: 6px; /* 控制滚动条的宽度 */
+  height: 6px;
 }
 
 /* 修改滚动条的轨道颜色 */
@@ -35,13 +49,31 @@ button, a, [role='button'] {
 
 /* 修改滚动条的滑块颜色 */
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* 滑块的颜色 */
+  background-color: #c3cfe0; /* 滑块的颜色 */
   border-radius: 9999px; /* 圆角 */
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* 当鼠标悬停时，修改滑块颜色 */
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* 悬停时的颜色 */
+  background-color: #8fa8d6; /* 悬停时的颜色 */
+}
+
+/* 全站统一过渡：减少生硬跳变，让 hover / focus 更顺滑 */
+@media (prefers-reduced-motion: no-preference) {
+  button, a, [role='button'], input, textarea, select, [data-slot='card'] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* 卡片统一柔和阴影层级：默认浅影，hover 加深 */
+[data-slot='card'] {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+[data-slot='card']:hover {
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 10px 24px rgba(15, 23, 42, 0.09);
 }
 
 :root {
