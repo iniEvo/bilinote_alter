@@ -3,7 +3,7 @@
     <p align="center">
   <img src="./doc/icon.svg" alt="BiliNote Banner" width="50" height="50"  />
 </p>
-<h1 align="center" > BiliNote（二次开发版）</h1>
+<h1 align="center" > BiliNote ALTER（二次开发版）</h1>
 </div>
 
 <p align="center"><i>AI 视频笔记生成工具 —— 基于开源项目 BiliNote 的增强版本，让 AI 为你的视频做笔记</i></p>
@@ -113,7 +113,7 @@ docker-compose -f docker-compose.gpu.yml up --build -d
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/iniEvo/BiliNote.git
+git clone https://github.com/iniEvo/bilinote_alter.git
 cd BiliNote
 cp .env.example .env
 ```
