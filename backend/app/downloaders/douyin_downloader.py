@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 from typing import Union, Optional
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -290,7 +291,21 @@ class DouyinDownloader(Downloader):
             )
 
             response = requests.get(full_url, headers=kwargs)
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as exc:
+                # 抖音对高频请求间歇性 403（风控），Cookie 有效也会随机触发。
+                # 等待后重试（最多 3 次），把偶发 403 自动消化，避免任务直接失败。
+                for attempt in range(2, 4):
+                    logger.warning('Douyin detail 403, retry %d/3 after 3s...', attempt)
+                    time.sleep(3)
+                    response = requests.get(full_url, headers=kwargs)
+                    try:
+                        response.raise_for_status()
+                        break
+                    except requests.exceptions.HTTPError:
+                        if attempt == 3:
+                            raise
 
             try:
                 data = response.json()
@@ -392,14 +407,28 @@ class DouyinDownloader(Downloader):
             )
 
         normalized_video_url = self._normalize_video_url(video_url)
-        info = self._extract_info_with_ytdlp(normalized_video_url, download=False, output_dir=output_dir)
-        media_url = info.get('url')
-        if not media_url:
-            raise ValueError('请求失败: 未获取到抖音媒体下载地址')
+        info = None
+        media_url = None
+        media_ext = 'mp4'
+        try:
+            info = self._extract_info_with_ytdlp(normalized_video_url, download=False, output_dir=output_dir)
+            media_url = info.get('url')
+            media_ext = info.get('ext') or 'mp4'
+        except Exception as exc:
+            # yt-dlp 抖音 extractor 常因缺少 a_bogus 签名 / 风控返回 403 并误报
+            # "Fresh cookies"，此时 Cookie 其实有效（fetch_video_info 已成功）。
+            # 不能抛错——必须回退到下方详情接口的 download_addr 直连下载。
+            logger.warning('Douyin audio yt-dlp failed (%s), fallback to download_addr', exc)
+            media_url = None
 
-        media_ext = info.get('ext') or 'mp4'
+        if not media_url:
+            addr = detail.get('video', {}).get('download_addr', {}).get('url_list') or []
+            if not addr:
+                raise ValueError('请求失败: 未获取到抖音媒体下载地址')
+            media_url = addr[0]
+
         media_path = os.path.join(output_dir, f"{detail['aweme_id']}.{media_ext}")
-        response = requests.get(media_url, headers=info.get('http_headers') or self.headers_config, stream=True)
+        response = requests.get(media_url, headers=self.headers_config, stream=True)
         response.raise_for_status()
         with open(media_path, 'wb') as f:
             for chunk in response.iter_content(1024 * 1024):
@@ -418,12 +447,12 @@ class DouyinDownloader(Downloader):
 
         return AudioDownloadResult(
             file_path=audio_path,
-            title=info.get('title') or title,
-            duration=info.get('duration', duration),
-            cover_url=info.get('thumbnail') or cover_url,
+            title=(info or {}).get('title') or title,
+            duration=(info or {}).get('duration', duration),
+            cover_url=(info or {}).get('thumbnail') or cover_url,
             platform='douyin',
-            video_id=info.get('id') or detail['aweme_id'],
-            raw_info={'tags': info.get('tags') or detail.get('caption', '') + ''.join(tags)},
+            video_id=(info or {}).get('id') or detail['aweme_id'],
+            raw_info={'tags': (info or {}).get('tags') or detail.get('caption', '') + ''.join(tags)},
             video_path=None,
         )
 
@@ -448,10 +477,11 @@ class DouyinDownloader(Downloader):
             video_path = os.path.join(output_dir, f"{video_id}.mp4")
             if os.path.exists(video_path):
                 return video_path
-        except BizException:
-            raise
         except Exception as exc:
-            logger.warning('Douyin video fallback to legacy API failed: %s', exc)
+            # yt-dlp 抖音 extractor 常因缺少 a_bogus 签名 / 风控返回 403 并误报
+            # "Fresh cookies"，此时 Cookie 其实是好的（fetch_video_info 能成功）。
+            # 不能在这里 raise——必须回退到下方 requests 直连路径。
+            logger.warning('Douyin video yt-dlp failed (%s), fallback to legacy API', exc)
 
         try:
             video_data = self.fetch_video_info(video_url)
