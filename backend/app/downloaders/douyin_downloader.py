@@ -422,10 +422,21 @@ class DouyinDownloader(Downloader):
             media_url = None
 
         if not media_url:
-            addr = detail.get('video', {}).get('download_addr', {}).get('url_list') or []
-            if not addr:
+            # fallback：依次尝试 download_addr → play_addr → bit_rate 的 play_addr
+            # （部分视频 download_addr 为空，但 play_addr 可用）
+            for field in ('download_addr', 'play_addr'):
+                addr = (detail.get('video', {}).get(field) or {}).get('url_list') or []
+                if addr:
+                    media_url = addr[0]
+                    break
+            if not media_url:
+                for br in (detail.get('video', {}).get('bit_rate') or []):
+                    addr = (br.get('play_addr') or {}).get('url_list') or []
+                    if addr:
+                        media_url = addr[0]
+                        break
+            if not media_url:
                 raise ValueError('请求失败: 未获取到抖音媒体下载地址')
-            media_url = addr[0]
 
         media_path = os.path.join(output_dir, f"{detail['aweme_id']}.{media_ext}")
         response = requests.get(media_url, headers=self.headers_config, stream=True)
@@ -438,12 +449,17 @@ class DouyinDownloader(Downloader):
         audio_path = media_path
         if media_ext != 'mp3':
             audio_path = os.path.join(output_dir, f"{detail['aweme_id']}.mp3")
-            subprocess.run(
+            proc = subprocess.run(
                 [ffmpeg_executable(), '-y', '-i', media_path, '-vn', '-acodec', 'libmp3lame', audio_path],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=600,
             )
+            if proc.returncode != 0:
+                # 记录 ffmpeg 真实错误（之前 stderr 被丢弃，报错原因不可见）
+                detail_err = (proc.stderr or '')[-1500:]
+                logger.error('ffmpeg 转音频失败: %s', detail_err)
+                raise ValueError(f'Failed to load audio: {detail_err[-500:]}')
 
         return AudioDownloadResult(
             file_path=audio_path,

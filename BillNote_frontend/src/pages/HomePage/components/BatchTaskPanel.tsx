@@ -385,7 +385,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                 cardRefs.current[group.id] = node
               }}
               className={cn(
-                'min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 p-3.5 shadow-sm transition-all',
+                'shrink-0 min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 p-3.5 shadow-sm transition-all',
                 focusedBatchId === group.id
                   ? 'border-blue-300 bg-blue-50/80 shadow-md ring-2 ring-blue-100'
                   : 'hover:-translate-y-px hover:border-blue-200 hover:shadow-md',
