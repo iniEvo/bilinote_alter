@@ -157,8 +157,10 @@ export const checkBatchDuplicates = async (data: GenerateBatchPayload) => {
   return response.results || []
 }
 
-export const getBatchStatus = async (batchId: string) => {
-  return await request.get(`/batch_status/${batchId}`) as BatchStatusResponse
+export const getBatchStatus = async (batchId: string, options?: { light?: boolean }) => {
+  return await request.get(`/batch_status/${batchId}`, {
+    params: options?.light ? { light: true } : undefined,
+  }) as BatchStatusResponse
 }
 
 export const batchPause = async (batchId: string) => {
@@ -248,7 +250,7 @@ export const fixNoteTitles = async (fetchOnline = false) => {
   return await request.post('/fix_note_titles', { fetch_online: fetchOnline }) as FixNoteTitlesResult
 }
 
-export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean, batch_id?: string }) => {
+export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean, batch_id?: string, light?: boolean }) => {
   return await request.get('/history', { params })
 }
 

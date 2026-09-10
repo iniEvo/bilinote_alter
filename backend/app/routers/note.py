@@ -9,7 +9,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
@@ -365,7 +365,7 @@ def _history_sort_priority(item: dict) -> tuple[int, float]:
 
 
 
-def _build_task_item(task_id: str, *, row=None):
+def _build_task_item(task_id: str, *, row=None, light: bool = False):
     result = _load_note_result(task_id)
     status, message = _resolve_effective_status(task_id, result=result, row=row)
     request_payload = dict(getattr(row, 'request_payload_data', None) or {})
@@ -376,7 +376,7 @@ def _build_task_item(task_id: str, *, row=None):
     )
     if source_url and request_payload.get('video_url') != source_url:
         request_payload['video_url'] = source_url
-    return {
+    item = {
         'task_id': task_id,
         'video_id': getattr(row, 'video_id', None),
         'platform': getattr(row, 'platform', None),
@@ -390,6 +390,12 @@ def _build_task_item(task_id: str, *, row=None):
         'result': result,
         'request_payload': request_payload,
     }
+    if light:
+        # 列表轮询只需要状态/标题/链接；重型 result(transcript/markdown/audio_meta)
+        # 会让单 batch 响应膨胀到十几 MB 并触发前端 10s 超时。
+        # 详情页通过 /history/{task_id} 单独拉取完整 result。
+        item['result'] = None
+    return item
 
 
 def _delete_task_data(task_id: str) -> bool:
@@ -1054,9 +1060,9 @@ def generate_notes_batch(data: BatchVideoRequest, background_tasks: BackgroundTa
 
 
 @router.get('/batch_status/{batch_id}')
-def get_batch_status(batch_id: str):
+def get_batch_status(batch_id: str, light: bool = Query(False)):
     rows = list_tasks_by_batch(batch_id)
-    items = [_build_task_item(row.task_id, row=row) for row in rows]
+    items = [_build_task_item(row.task_id, row=row, light=light) for row in rows]
     summary = {
         'total': len(items),
         'success': sum(1 for item in items if item['status'] == TaskStatus.SUCCESS.value),
@@ -1392,7 +1398,7 @@ def fix_note_titles(data: FixNoteTitlesRequest):
 
 
 @router.get('/history')
-def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True, batch_id: str | None = None):
+def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True, batch_id: str | None = None, light: bool = Query(False)):
     items = []
     target_offset = max(offset, 0)
     target_limit = max(limit, 1)
@@ -1406,7 +1412,7 @@ def get_history(limit: int = 100, offset: int = 0, include_pending: bool = True,
         fetch_offset += len(rows)
 
         for row in rows:
-            item = _build_task_item(row.task_id, row=row)
+            item = _build_task_item(row.task_id, row=row, light=light)
             if not item['result'] and not include_pending:
                 continue
             # Failed tasks are kept in the list (with their failure message) so the

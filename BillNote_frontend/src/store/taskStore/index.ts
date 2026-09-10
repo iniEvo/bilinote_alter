@@ -1068,7 +1068,7 @@ export const useTaskStore = create<TaskStore>()(
       refreshHistoryList: async () => {
         try {
           const loadedHistoryCount = get().tasks.length || HISTORY_PAGE_SIZE
-          const history = await getHistory({ limit: loadedHistoryCount, offset: 0 })
+          const history = await getHistory({ limit: loadedHistoryCount, offset: 0, light: true })
           if (!Array.isArray(history)) {
             get().setHasHydrated(true)
             return
@@ -1097,7 +1097,7 @@ export const useTaskStore = create<TaskStore>()(
 
           for (const group of get().batchGroups) {
             try {
-              const batch = await getBatchStatus(group.id)
+              const batch = await getBatchStatus(group.id, { light: true })
               get().reconcileBatchStatus(
                 group.id,
                 batch.items as HistoryItem[],
