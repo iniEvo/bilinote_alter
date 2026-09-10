@@ -604,7 +604,10 @@ export const useTaskStore = create<TaskStore>()(
           const tasks = state.tasks.map(task => {
             if (task.id !== id)
               return task
-            if (task.status === 'SUCCESS' && data.status === 'SUCCESS')
+            // 任务已是 SUCCESS 且本次轮询没有带来新的 markdown 内容时跳过，
+            // 避免重复版本堆积。但如果带上了真实内容（此前 light 轮询只刷了
+            // 状态、没刷标题/正文），必须继续更新，否则卡片永远显示占位标题。
+            if (task.status === 'SUCCESS' && data.status === 'SUCCESS' && !data.markdown)
               return task
 
             if (typeof data.markdown === 'string') {
