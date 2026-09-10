@@ -114,10 +114,10 @@ export function MarkdownHeader({
           </Select>
         )}
 
-        <Badge variant="secondary" className="max-w-[120px] truncate rounded-full bg-pink-100 px-2 text-pink-700 hover:bg-pink-200 sm:max-w-[160px]">
+        <Badge variant="secondary" className="max-w-[120px] truncate rounded-full bg-gradient-to-r from-pink-50 to-rose-50 px-2 text-pink-700 ring-1 ring-inset ring-pink-200/60 hover:bg-pink-100 sm:max-w-[160px]">
           {modelName}
         </Badge>
-        <Badge variant="secondary" className="max-w-[96px] truncate rounded-full bg-cyan-100 px-2 text-cyan-700 hover:bg-cyan-200 sm:max-w-[120px]">
+        <Badge variant="secondary" className="max-w-[96px] truncate rounded-full bg-gradient-to-r from-cyan-50 to-sky-50 px-2 text-cyan-700 ring-1 ring-inset ring-cyan-200/60 hover:bg-cyan-100 sm:max-w-[120px]">
           {styleName}
         </Badge>
 

@@ -13,6 +13,7 @@ import {
   get_task_status,
   getBatchStatus,
   getHistory,
+  getHistoryTask,
   renameBatch,
   moveTaskToBatch,
   getAllBatches,
@@ -1053,6 +1054,30 @@ export const useTaskStore = create<TaskStore>()(
             })
           }
 
+          // 补拉未归入项目的全部单条笔记（batch_id=__none__），
+          // 避免它们被项目内的大量任务挤出最近 N 条窗口导致列表显示不全
+          try {
+            const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__' }).catch(() => [])
+            if (Array.isArray(singles) && singles.length > 0) {
+              set(state => {
+                const merged = [...state.tasks]
+                for (const item of singles) {
+                  const task = createHistoryTask(item)
+                  const idx = merged.findIndex(existing => existing.id === task.id)
+                  if (idx >= 0) merged[idx] = { ...merged[idx], ...task }
+                  else merged.push(task)
+                }
+                merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                return {
+                  tasks: merged,
+                  batchGroups: buildBatchGroups(merged, get().batchGroups),
+                }
+              })
+            }
+          } catch {
+            // 静默：旧后端不支持 __none__ 时跳过
+          }
+
           // 强制同步已有 batch 的任务状态：persist 的 batchItems 可能停留在
           // 提交时的 PENDING，不刷新会一直显示"等待中"（实际任务可能已成功/失败）。
           try {
@@ -1067,8 +1092,9 @@ export const useTaskStore = create<TaskStore>()(
 
       refreshHistoryList: async () => {
         try {
-          const loadedHistoryCount = get().tasks.length || HISTORY_PAGE_SIZE
-          const history = await getHistory({ limit: loadedHistoryCount, offset: 0, light: true })
+          // 轮询只取最近一批，不必全量拉取所有历史（tasks.length 可能几百条，全量查 SQLite 慢）
+          const limit = Math.min(get().tasks.length || HISTORY_PAGE_SIZE, 100)
+          const history = await getHistory({ limit, offset: 0, light: true })
           if (!Array.isArray(history)) {
             get().setHasHydrated(true)
             return
@@ -1081,16 +1107,20 @@ export const useTaskStore = create<TaskStore>()(
               return existing ? patchHistoryCardTask(existing, item) : createHistoryTask(item)
             })
 
-            // Use the server response as the source of truth for the visible history window.
-            // Tasks missing from the refreshed list were deleted by the user; the server
-            // keeps failed tasks in the list so they render as failed cards with retry.
-            nextTasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            // 合并而不是替换：保留 store 中已有但不在本次轮询结果里的任务
+            //（例如通过 __none__ 补拉进来的无项目笔记，轮询的最近 100 条
+            //  可能覆盖不到它们）。轮询只更新后端返回的任务，不删除本地已加载的。
+            const nextIds = new Set(nextTasks.map(t => t.id))
+            const retained = state.tasks.filter(t => !nextIds.has(t.id))
+            const merged = [...retained, ...nextTasks]
+            merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
             return {
-              tasks: nextTasks,
-              batchGroups: buildBatchGroups(nextTasks, state.batchGroups),
+              tasks: merged,
+              batchGroups: buildBatchGroups(merged, state.batchGroups),
               currentTaskId: state.currentTaskId,
               keepFormDraft: state.keepFormDraft,
-              historyHasMore: history.length >= loadedHistoryCount,
+              historyHasMore: history.length >= limit,
               hasHydrated: true,
             }
           })
@@ -1154,7 +1184,26 @@ export const useTaskStore = create<TaskStore>()(
         }
       },
 
-      setCurrentTask: taskId => set({ currentTaskId: taskId, keepFormDraft: false }),
+      setCurrentTask: taskId => {
+        set({ currentTaskId: taskId, keepFormDraft: false })
+        // 点击卡片时若内存中该任务没有完整正文（light 轮询只带回 result=null），
+        // 主动补拉全量详情，避免预览区空白。
+        if (!taskId) return
+        const task = get().tasks.find(t => t.id === taskId)
+        const hasContent = task?.markdown
+          && (typeof task.markdown === 'string'
+            ? task.markdown.length > 0
+            : Array.isArray(task.markdown) && task.markdown.length > 0)
+        if (hasContent) return
+        void (async () => {
+          try {
+            const item = await getHistoryTask(taskId, { suppressToast: true })
+            if (item) get().upsertHistoryTask(item)
+          } catch {
+            // 静默：下次轮询/点击兜底
+          }
+        })()
+      },
       setKeepFormDraft: keep => set({ keepFormDraft: keep }),
       setFocusedBatch: batchId => set({ focusedBatchId: batchId }),
 

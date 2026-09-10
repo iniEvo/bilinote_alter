@@ -24,7 +24,7 @@ interface HistoryPanelProps {
 }
 
 const panelShellClass =
-  'relative z-10 flex h-full flex-col overflow-hidden border border-white/60 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.07)] backdrop-blur-xl'
+  'panel-glass relative z-10 flex h-full flex-col overflow-hidden rounded-[24px] border border-white/70'
 
 const iconButtonClass =
   'cursor-pointer rounded-xl border border-transparent p-2 text-slate-500 transition-[color,border-color,background-color,box-shadow] hover:border-blue-100 hover:bg-white hover:text-primary hover:shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
@@ -179,7 +179,7 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
                     value={historySearch}
                     onChange={e => setHistorySearch(e.target.value)}
                     placeholder="搜索笔记标题或项目名称"
-                    className="h-9 rounded-xl border-slate-200/80 bg-slate-50/70 pl-9 text-xs shadow-none transition-[border-color,background-color,box-shadow] focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    className="h-9 rounded-xl border-slate-200/60 bg-white/70 pl-9 text-xs shadow-sm backdrop-blur transition-[border-color,background-color,box-shadow] focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
               </header>
@@ -211,7 +211,7 @@ const HomeLayout: FC<IProps> = ({ NoteForm, Preview, History }) => {
           )}
 
           <ResizablePanel defaultSize={59} minSize={30} className="min-w-0 overflow-hidden">
-            <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/86 p-3 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl md:p-4">
+            <main className="panel-glass flex h-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/70 p-3 md:p-4">
               {Preview}
             </main>
           </ResizablePanel>

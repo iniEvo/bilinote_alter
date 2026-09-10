@@ -10,6 +10,15 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 import {
     Database,
     FolderOpen,
@@ -20,6 +29,8 @@ import {
     Lock,
     HardDrive,
     FileText,
+    Timer,
+    Check,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -27,6 +38,10 @@ import {
     getArtifacts,
     cleanupArtifacts,
     ArtifactInfo,
+    getAutoCleanupConfig,
+    saveAutoCleanupConfig,
+    runAutoCleanup,
+    AutoCleanupConfig,
 } from '@/services/artifact'
 
 const formatSize = (bytes: number): string => {
@@ -36,6 +51,26 @@ const formatSize = (bytes: number): string => {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 
+/** key → 前端友好名称，与后端 AUTO_CLEANABLE_KEYS 保持一致 */
+const KEY_LABELS: Record<string, string> = {
+    transcript_json: '音频转写文本',
+    task_state_json: '任务状态与中间 JSON',
+    video_audio_cache: '视频 / 音频缓存',
+    screenshots: '笔记配图截图',
+    frame_artifacts: '视频抽帧产物',
+    uploads: '本地上传文件',
+    markdown_notes: 'Markdown 导出副本',
+}
+
+const INTERVAL_OPTIONS = [
+    { label: '每 1 小时', value: 1 },
+    { label: '每 6 小时', value: 6 },
+    { label: '每 12 小时', value: 12 },
+    { label: '每 24 小时（推荐）', value: 24 },
+    { label: '每 3 天', value: 72 },
+    { label: '每 7 天', value: 168 },
+]
+
 export default function Artifacts() {
     const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([])
     const [loading, setLoading] = useState(true)
@@ -43,6 +78,18 @@ export default function Artifacts() {
     // 待二次确认的清理目标；null 表示弹窗关闭
     const [confirmTarget, setConfirmTarget] = useState<ArtifactInfo | null>(null)
     const [cleaningKey, setCleaningKey] = useState<string | null>(null)
+
+    // ── 自动清理 ──
+    const [autoCfg, setAutoCfg] = useState<AutoCleanupConfig>({
+        enabled: false,
+        interval_hours: 24,
+        keys: [],
+        last_run_at: null,
+        available_keys: [],
+    })
+    const [autoLoading, setAutoLoading] = useState(true)
+    const [autoSaving, setAutoSaving] = useState(false)
+    const [autoRunning, setAutoRunning] = useState(false)
 
     const fetchArtifacts = useCallback(async () => {
         try {
@@ -57,9 +104,22 @@ export default function Artifacts() {
         }
     }, [])
 
+    const fetchAutoConfig = useCallback(async () => {
+        try {
+            setAutoLoading(true)
+            const cfg = await getAutoCleanupConfig()
+            setAutoCfg(cfg)
+        } catch {
+            // 静默：接口可能未就绪
+        } finally {
+            setAutoLoading(false)
+        }
+    }, [])
+
     useEffect(() => {
         fetchArtifacts()
-    }, [fetchArtifacts])
+        fetchAutoConfig()
+    }, [fetchArtifacts, fetchAutoConfig])
 
     const handleCleanup = async (target: ArtifactInfo) => {
         setConfirmTarget(null)
@@ -77,6 +137,52 @@ export default function Artifacts() {
             // request 拦截器已统一弹出错误提示
         } finally {
             setCleaningKey(null)
+        }
+    }
+
+    const toggleKey = (key: string) => {
+        setAutoCfg(prev => {
+            const keys = prev.keys.includes(key)
+                ? prev.keys.filter(k => k !== key)
+                : [...prev.keys, key]
+            return { ...prev, keys }
+        })
+    }
+
+    const handleSaveAutoConfig = async () => {
+        setAutoSaving(true)
+        try {
+            const cfg = await saveAutoCleanupConfig(autoCfg)
+            setAutoCfg(cfg)
+            toast.success('自动清理配置已保存')
+        } catch {
+            // request 拦截器已统一弹出错误提示
+        } finally {
+            setAutoSaving(false)
+        }
+    }
+
+    const handleRunAutoCleanup = async () => {
+        setAutoRunning(true)
+        try {
+            const data = await runAutoCleanup()
+            const results = data.results || []
+            const succeeded = results.filter((r) => r.status === 'done')
+            const totalFreed = succeeded.reduce((s, r) => s + (r.freed_bytes || 0), 0)
+            const totalRemoved = succeeded.reduce((s, r) => s + (r.removed_files || 0), 0)
+            if (succeeded.length > 0) {
+                toast.success(
+                    `自动清理完成：删除 ${totalRemoved} 个文件，释放 ${formatSize(totalFreed)}`,
+                )
+            } else {
+                const first = results[0]
+                toast.error(first?.msg || '没有可清理的文件')
+            }
+            await fetchArtifacts()
+        } catch {
+            // request 拦截器已统一弹出错误提示
+        } finally {
+            setAutoRunning(false)
         }
     }
 
@@ -100,7 +206,10 @@ export default function Artifacts() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={fetchArtifacts}
+                            onClick={() => {
+                                fetchArtifacts()
+                                fetchAutoConfig()
+                            }}
                             disabled={loading}
                         >
                             {loading ? (
@@ -118,6 +227,134 @@ export default function Artifacts() {
                         {error}
                     </div>
                 )}
+
+                {/* ── 自动清理配置卡片 ── */}
+                <Card className="mb-6 border-blue-200 bg-blue-50/60">
+                    <CardContent className="pt-4">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div className="min-w-0 flex-1 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Timer className="h-4 w-4 text-blue-600" />
+                                    <span className="text-sm font-semibold">自动清理</span>
+                                    {autoCfg.last_run_at && (
+                                        <span className="text-muted-foreground text-xs">
+                                            上次执行: {new Date(autoCfg.last_run_at).toLocaleString()}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* 开关 */}
+                                <div className="flex items-center gap-3">
+                                    <Switch
+                                        id="auto-cleanup-toggle"
+                                        checked={autoCfg.enabled}
+                                        onCheckedChange={(checked) =>
+                                            setAutoCfg((prev) => ({ ...prev, enabled: checked }))
+                                        }
+                                        disabled={autoLoading}
+                                    />
+                                    <Label htmlFor="auto-cleanup-toggle" className="text-sm">
+                                        {autoCfg.enabled ? '已开启' : '已关闭'}
+                                    </Label>
+                                </div>
+
+                                {/* 清理间隔（仅开启时展示） */}
+                                {autoCfg.enabled && (
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-muted-foreground text-xs whitespace-nowrap">
+                                            清理周期
+                                        </span>
+                                        <Select
+                                            value={String(autoCfg.interval_hours)}
+                                            onValueChange={(v) =>
+                                                setAutoCfg((prev) => ({
+                                                    ...prev,
+                                                    interval_hours: Number(v),
+                                                }))
+                                            }
+                                        >
+                                            <SelectTrigger className="h-8 w-auto min-w-[140px] text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {INTERVAL_OPTIONS.map((opt) => (
+                                                    <SelectItem key={opt.value} value={String(opt.value)}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {/* 纳入范围的多选列表 */}
+                                {autoCfg.enabled && (
+                                    <div className="space-y-1.5">
+                                        <span className="text-muted-foreground text-xs">
+                                            自动清理范围（至少选一项）
+                                        </span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(autoCfg.available_keys || []).map((key) => {
+                                                const checked = autoCfg.keys.includes(key)
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        onClick={() => toggleKey(key)}
+                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                                                            checked
+                                                                ? 'border-blue-400 bg-blue-100 text-blue-700'
+                                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                    >
+                                                        {checked && <Check className="h-3 w-3" />}
+                                                        {KEY_LABELS[key] || key}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 右侧按钮组 */}
+                            <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-end">
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={autoSaving}
+                                        onClick={handleSaveAutoConfig}
+                                    >
+                                        {autoSaving ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Check className="mr-2 h-4 w-4" />
+                                        )}
+                                        保存配置
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        disabled={autoRunning || autoCfg.keys.length === 0}
+                                        onClick={handleRunAutoCleanup}
+                                    >
+                                        {autoRunning ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Timer className="mr-2 h-4 w-4" />
+                                        )}
+                                        立即执行
+                                    </Button>
+                                </div>
+                                <span className="text-muted-foreground text-xs">
+                                    {autoCfg.keys.length > 0
+                                        ? `已选 ${autoCfg.keys.length} 项`
+                                        : '请先选择清理范围'}
+                                </span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Artifact list：每个生成物地址独立展示 */}
                 <div className="flex flex-col gap-4">

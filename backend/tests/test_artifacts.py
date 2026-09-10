@@ -10,8 +10,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.routers.artifacts import (  # noqa: E402
-    ARTIFACT_REGISTRY,
+    ARTIFACT_REGISTRY_STATIC,
     CleanupRequest,
+    _build_registry,
     _clear_globs,
     _clear_item,
     _resolve_glob_files,
@@ -34,13 +35,13 @@ def _mk(tmp, *names):
 
 class TestArtifactRegistry(unittest.TestCase):
     def test_note_json_is_not_deletable(self):
-        meta = next(m for m in ARTIFACT_REGISTRY if m['key'] == 'note_json')
+        meta = next(m for m in ARTIFACT_REGISTRY_STATIC if m['key'] == 'note_json')
         self.assertFalse(meta['deletable'])
         self.assertTrue(meta['globs'])
         self.assertTrue(meta['exclude_globs'])
 
     def test_markdown_copy_is_deletable(self):
-        meta = next(m for m in ARTIFACT_REGISTRY if m['key'] == 'markdown_notes')
+        meta = next(m for m in _build_registry() if m['key'] == 'markdown_notes')
         self.assertTrue(meta['deletable'])
         self.assertTrue(meta['dirs'])
 
@@ -105,9 +106,7 @@ class TestCleanupEndpoint(unittest.TestCase):
                           'globs': [f'{tmp}/*_transcript.json'], 'exclude_globs': [],
                           'deletable': True, 'warning': None}
             registry = [note_meta, trans_meta]
-            with patch.object(sys.modules['app.routers.artifacts'], 'ARTIFACT_REGISTRY', registry), \
-                 patch.object(sys.modules['app.routers.artifacts'], '_KEY_TO_META',
-                              {m['key']: m for m in registry}):
+            with patch.object(sys.modules['app.routers.artifacts'], '_build_registry', return_value=registry):
                 resp = cleanup_artifacts(CleanupRequest(keys=['transcript_json']))
             body = self._body(resp)
             result = body['data']['results'][0]

@@ -1,10 +1,11 @@
 import { useTaskStore } from '@/store/taskStore'
 import { useProviderStore } from '@/store/providerStore'
+import { getHistory } from '@/services/note'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ModelRerouteDialog from '@/components/ModelRerouteDialog'
 import { Button } from '@/components/ui/button.tsx'
 import Fuse from 'fuse.js'
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
 import TaskHistoryCard from '@/pages/HomePage/components/TaskHistoryCard.tsx'
 import {
@@ -39,6 +40,28 @@ const NoteHistory: FC<NoteHistoryProps> = ({
   const providers = useProviderStore(state => state.provider)
   const [rerouteOpen, setRerouteOpen] = useState(false)
   const [rerouteTask, setRerouteTask] = useState<{ id: string } | null>(null)
+
+  // 挂载时补拉全部未归入项目的笔记（batch_id=__none__），
+  // 不依赖 hydrateHistory 的执行时序，确保「笔记」tab 列表完整。
+  // 只在首次挂载时执行一次（用 ref 防重复），避免与轮询互相干扰
+  const fetchedSinglesRef = useRef(false)
+  useEffect(() => {
+    if (fetchedSinglesRef.current) return
+    fetchedSinglesRef.current = true
+    let active = true
+    void (async () => {
+      try {
+        const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__' })
+        if (!active || !Array.isArray(singles) || singles.length === 0) return
+        const existingIds = new Set(useTaskStore.getState().tasks.map(t => t.id))
+        const missing = singles.filter(item => !existingIds.has(item.task_id))
+        for (const item of missing) useTaskStore.getState().upsertHistoryTask(item)
+      } catch {
+        // 旧后端不支持 __none__ 时静默跳过
+      }
+    })()
+    return () => { active = false }
+  }, [])
 
   const isProviderDisabled = (providerId?: string) => {
     if (!providerId)

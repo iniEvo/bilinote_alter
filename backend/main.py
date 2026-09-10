@@ -72,13 +72,31 @@ async def lifespan(app: FastAPI):
 
         logger.info("[startup 5/5] 启动完成，等待请求")
 
+        # 自动清理调度线程：配置开启时按周期清理选中的生成物
+        try:
+            from app.services.auto_cleanup_scheduler import auto_cleanup_scheduler
+
+            auto_cleanup_scheduler.start()
+            logger.info("[startup 5b/5] 自动清理调度线程已就绪")
+        except Exception as _se:
+            logger.warning(f"自动清理调度线程启动失败: {_se}")
+
         logger.info("[startup 6/6] 恢复卡住的中间状态任务")
         try:
             from app.utils.output_paths import JSON_OUTPUT_DIR
             from app.enmus.task_status_enums import TaskStatus
             import tempfile
             json_dir = JSON_OUTPUT_DIR
-            stuck_statuses = {TaskStatus.TRANSCRIBING.value, TaskStatus.SUMMARIZING.value, TaskStatus.FORMATTING.value, TaskStatus.SAVING.value}
+            stuck_statuses = {
+                TaskStatus.TRANSCRIBING.value,
+                TaskStatus.SUMMARIZING.value,
+                TaskStatus.FORMATTING.value,
+                TaskStatus.SAVING.value,
+                # 下载/解析/排队中被打断同样会冻结（kill -9 重启时）
+                TaskStatus.DOWNLOADING.value,
+                TaskStatus.PARSING.value,
+                TaskStatus.PENDING.value,
+            }
             recovered = 0
             for p in json_dir.glob("*.status.json"):
                 try:

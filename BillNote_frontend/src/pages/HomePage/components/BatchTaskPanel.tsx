@@ -393,7 +393,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
               )}
             >
               <div
-                className="flex w-full items-start justify-between gap-3 text-left"
+                className="flex w-full items-center justify-between gap-3 text-left"
                 role="button"
                 tabIndex={0}
                 onClick={() => {
@@ -413,12 +413,12 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
                 }}
               >
                 <div className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70 p-2.5">
-                  <div className="flex min-w-0 items-start gap-2 text-sm font-semibold text-slate-900">
-                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
+                  <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                       {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0 flex-1 overflow-hidden">
-                      <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
                         {editingName && editingBatchId === group.id ? (
                           <div className="flex min-w-0 flex-1 items-center gap-1">
                             <input

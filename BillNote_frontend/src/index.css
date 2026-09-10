@@ -186,6 +186,61 @@ button, a, [role='button'] {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ── 增强: 卡片悬浮微提升 ── */
+[data-slot='card']:hover {
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 10px 24px rgba(15, 23, 42, 0.09);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot='card'] {
+    transition: box-shadow 200ms ease, transform 200ms ease;
+  }
+}
+
+/* ── 增强: 按钮按下缩放统一 ── */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ── 增强: 玻璃面板 ── */
+.panel-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* ── 增强: 渐变按钮发光 ── */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+.btn-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent 60%);
+  pointer-events: none;
+}
+
+/* ── 增强: 选中卡片左指示条 ── */
+.card-selected-indicator {
+  position: relative;
+}
+.card-selected-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #3c77fb, #22d3ee);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -14,7 +14,7 @@ import type { FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-import { Info, Loader2, Plus, Upload, X } from 'lucide-react'
+import { Info, Layers, Loader2, Plus, Sparkles, Upload, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx'
 import {
   generateNote,
@@ -137,7 +137,7 @@ export type NoteFormValues = z.infer<typeof formSchema>
 const SectionHeader = ({ title, tip }: { title: string, tip?: string }) => (
   <div className="mb-3 flex items-center justify-between gap-3">
     <div className="flex items-center gap-2">
-      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" aria-hidden="true" />
+      <span className="inline-flex h-2 w-2 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)]" aria-hidden="true" />
       <h2 className="text-sm font-semibold tracking-tight text-slate-900">{title}</h2>
     </div>
     {tip && (
@@ -254,6 +254,8 @@ const NoteForm = () => {
     () => new Set(batchText.split('\n').map(line => line.trim()).filter(Boolean)).size,
     [batchText],
   )
+  const videoUrl = useWatch({ control: form.control, name: 'video_url' }) || ''
+  const batchMode = batchCount + (videoUrl.trim() ? 1 : 0) > 1
 
   const goModelAdd = () => {
     navigate('/settings/model')
@@ -822,7 +824,6 @@ const NoteForm = () => {
 
   const FormButton = () => {
     const buttonBusy = generating || isSubmitting
-    const batchMode = batchCount + (form.getValues('video_url')?.trim() ? 1 : 0) > 1
     const label = buttonBusy ? '正在生成…' : batchMode ? '批量生成笔记' : editing ? '重新生成' : '生成笔记'
 
     return (
@@ -831,7 +832,7 @@ const NoteForm = () => {
           type="submit"
           className={[
             !editing ? 'w-full' : 'w-2/3',
-            'h-11 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/20 transition-shadow hover:shadow-blue-500/30',
+            'btn-glow h-11 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/35 hover:brightness-105',
           ].join(' ')}
           disabled={buttonBusy}
         >
@@ -840,7 +841,7 @@ const NoteForm = () => {
         </Button>
 
         {editing && (
-          <Button type="button" variant="outline" className="h-11 w-1/3 rounded-xl bg-white" onClick={handleCreateNew}>
+          <Button type="button" variant="outline" className="flex h-11 w-1/3 items-center justify-center rounded-xl bg-white" onClick={handleCreateNew}>
             <Plus className="mr-2 h-4 w-4" />
             新建笔记
           </Button>
@@ -938,13 +939,22 @@ const NoteForm = () => {
                 <p className="mt-1 text-sm text-slate-500">输入视频链接、选择模型与风格，即可生成结构化内容。</p>
               </div>
               {batchCount > 0 && (
-                <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
+                <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600/10 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200/60">
+                  <Layers className="h-3.5 w-3.5" aria-hidden="true" />
                   {`批量 ${batchCount} 条`}
                 </div>
               )}
             </div>
-            <div className="mt-4">
+            <div className="mt-4 border-t border-blue-100/70 pt-4">
               <FormButton />
+              <p className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-400">
+                <Sparkles className="h-3.5 w-3.5 text-blue-400" aria-hidden="true" />
+                {editing
+                  ? '将用当前配置重新生成笔记，生成结果会替换现有内容'
+                  : batchMode
+                    ? '多行链接将以批量任务提交，逐条检测重复后生成'
+                    : '单条链接生成一篇结构化笔记，支持多种平台'}
+              </p>
             </div>
           </div>
 

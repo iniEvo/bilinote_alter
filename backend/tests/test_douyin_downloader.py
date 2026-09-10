@@ -148,10 +148,11 @@ class TestDownloadWithTmpDir(_TmpMediaCleanup, unittest.TestCase):
             tmpdir = self.tmpdir
             media_path = os.path.join(tmpdir, '7675967406614809865.mp4')
 
-            def fake_ffmpeg(cmd, check, stdout, stderr):
+            def fake_ffmpeg(*args, **kwargs):
+                cmd = args[0] if args else kwargs['cmd']
                 with open(cmd[-1], 'wb') as f:
                     f.write(b'mp3')
-                return None
+                return type('Proc', (), {'returncode': 0, 'stderr': ''})()
 
             mock_subprocess.side_effect = fake_ffmpeg
 

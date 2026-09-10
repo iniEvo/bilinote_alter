@@ -27,3 +27,37 @@ export const getArtifacts = async (): Promise<{ artifacts: ArtifactInfo[] }> => 
 export const cleanupArtifacts = async (keys: string[]): Promise<{ results: CleanupResult[] }> => {
   return await request.post('/artifacts/cleanup', { keys })
 }
+
+// ── 自动清理 ────────────────────────────────────────────────────────────
+
+export interface AutoCleanupConfig {
+  enabled: boolean
+  interval_hours: number
+  keys: string[]
+  last_run_at: string | null
+  available_keys?: string[]
+}
+
+export interface AutoCleanupRunResult {
+  key: string
+  status: 'done' | 'refused' | 'error'
+  removed_files?: number
+  freed_bytes?: number
+  msg: string
+}
+
+export const getAutoCleanupConfig = async (): Promise<AutoCleanupConfig> => {
+  return await request.get('/artifacts/auto_cleanup_config')
+}
+
+export const saveAutoCleanupConfig = async (data: {
+  enabled: boolean
+  interval_hours: number
+  keys: string[]
+}): Promise<AutoCleanupConfig> => {
+  return await request.post('/artifacts/auto_cleanup_config', data)
+}
+
+export const runAutoCleanup = async (): Promise<{ results: AutoCleanupRunResult[] }> => {
+  return await request.post('/artifacts/auto_cleanup/run')
+}

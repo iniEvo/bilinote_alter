@@ -287,3 +287,63 @@ def cleanup_artifacts(data: CleanupRequest):
             "msg": f"已删除 {removed} 个文件，释放 {freed / 1024 / 1024:.2f} MB",
         })
     return R.success(data={"results": results})
+
+
+# ── 自动清理 ────────────────────────────────────────────────────────────
+# 配置存 config/auto_cleanup.json（AutoCleanupConfigManager），由后台线程
+# （AutoCleanupScheduler）按周期执行。接口：
+#   GET  /artifacts/auto_cleanup_config  读取当前配置
+#   POST /artifacts/auto_cleanup_config  保存配置（含开关、间隔、范围）
+#   POST /artifacts/auto_cleanup/run     立即执行一次（不改变 last_run_at 语义，
+#                                         仍按配置周期自动执行）
+class AutoCleanupConfigRequest(BaseModel):
+    enabled: bool
+    interval_hours: int = 24
+    keys: List[str] = []
+
+
+@router.get("/artifacts/auto_cleanup_config")
+def get_auto_cleanup_config():
+    from app.services.auto_cleanup_config_manager import (
+        AUTO_CLEANABLE_KEYS,
+        AutoCleanupConfigManager,
+    )
+
+    cfg = AutoCleanupConfigManager().get_config()
+    return R.success(data={
+        "enabled": cfg["enabled"],
+        "interval_hours": cfg["interval_hours"],
+        "keys": cfg["keys"],
+        "last_run_at": cfg["last_run_at"],
+        "available_keys": AUTO_CLEANABLE_KEYS,
+    })
+
+
+@router.post("/artifacts/auto_cleanup_config")
+def save_auto_cleanup_config(data: AutoCleanupConfigRequest):
+    from app.services.auto_cleanup_config_manager import AutoCleanupConfigManager
+
+    cfg = AutoCleanupConfigManager().update_config(
+        enabled=data.enabled,
+        interval_hours=data.interval_hours,
+        keys=data.keys,
+    )
+    if cfg["enabled"] and not cfg["keys"]:
+        return R.error(msg="开启自动清理时至少需要选择一个清理范围", code=400)
+    return R.success(data=cfg)
+
+
+@router.post("/artifacts/auto_cleanup/run")
+def run_auto_cleanup_now():
+    from app.services.auto_cleanup_config_manager import AutoCleanupConfigManager
+    from app.services.auto_cleanup_scheduler import auto_cleanup_scheduler
+
+    # 立即清理采用「当前配置里的 keys」；未开启自动清理时仍允许手动触发，
+    # 便于用户在配置页先试验效果。
+    cfg = AutoCleanupConfigManager().get_config()
+    if not cfg["keys"]:
+        return R.error(msg="请先选择自动清理范围", code=400)
+    result = auto_cleanup_scheduler.run_cleanup(cfg["keys"])
+    if result.get("skipped") == "busy":
+        return R.error(msg="上一次清理仍在进行，请稍后再试", code=409)
+    return R.success(data=result)

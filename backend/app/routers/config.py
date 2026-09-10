@@ -560,9 +560,11 @@ async def deploy_status():
             "model_size": size,
             "transcriber_type": ttype,
             "downloaded": downloaded,
+            # 当前生效的模型目录（手动配置或默认）
+            "model_dir": get_model_dir("whisper" if ttype == "fast-whisper" else "mlx-whisper"),
         }
     except Exception:
-        whisper_info = {"model_size": None, "transcriber_type": None, "downloaded": False}
+        whisper_info = {"model_size": None, "transcriber_type": None, "downloaded": False, "model_dir": None}
 
     # FFmpeg 状态
     try:
@@ -570,10 +572,49 @@ async def deploy_status():
         ffmpeg_ok = True
     except Exception:
         ffmpeg_ok = False
+    from app.utils.ffmpeg_command import ffmpeg_executable
 
     return R.success(data={
         "backend": {"status": "running", "port": int(os.getenv("BACKEND_PORT", 8483))},
         "cuda": cuda_info,
         "whisper": whisper_info,
-        "ffmpeg": {"available": ffmpeg_ok},
+        "ffmpeg": {"available": ffmpeg_ok, "executable": ffmpeg_executable()},
     })
+
+
+# ── 外部路径配置（FFmpeg / Whisper 模型目录）────────────────────────────
+# 让部署监控页可以手动指定 FFmpeg 可执行文件路径与 Whisper 模型目录，
+# 解决「已安装但不在 PATH / 模型不在默认目录」时后台检测不到的问题。
+class BinPathsConfigRequest(BaseModel):
+    ffmpeg_path: Optional[str] = None
+    whisper_model_dir: Optional[str] = None
+
+
+@router.get("/bin_paths_config")
+def get_bin_paths_config():
+    from app.services.bin_paths_config_manager import BinPathsConfigManager
+
+    cfg = BinPathsConfigManager().get_config()
+    # 附上当前生效值，方便前端展示「现在用的是哪个」
+    from app.utils.ffmpeg_command import ffmpeg_executable, ffprobe_executable
+
+    return R.success(data={
+        **cfg,
+        "effective_ffmpeg": ffmpeg_executable(),
+        "effective_ffprobe": ffprobe_executable(),
+        "effective_whisper_dir": get_model_dir("whisper"),
+    })
+
+
+@router.post("/bin_paths_config")
+def update_bin_paths_config(data: BinPathsConfigRequest):
+    from app.services.bin_paths_config_manager import BinPathsConfigManager
+
+    try:
+        cfg = BinPathsConfigManager().update_config(
+            ffmpeg_path=data.ffmpeg_path,
+            whisper_model_dir=data.whisper_model_dir,
+        )
+    except ValueError as exc:
+        return R.error(msg=str(exc), code=400)
+    return R.success(data=cfg, msg="路径配置已保存")

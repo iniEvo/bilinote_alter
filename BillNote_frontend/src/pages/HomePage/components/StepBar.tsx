@@ -29,7 +29,7 @@ const StepBar: FC<StepBarProps> = ({ steps, currentStep }) => {
                   isActive
                     ? 'bg-primary text-white shadow-primary/30'
                     : 'bg-slate-200 text-slate-500'
-                } ${index > 0 ? '-ml-px' : ''}`}
+                }`}
               >
                 {index + 1}
               </div>
@@ -40,11 +40,11 @@ const StepBar: FC<StepBarProps> = ({ steps, currentStep }) => {
             </div>
 
             {/* 步骤名称 */}
-            <div className={`mt-4 text-center text-xs transition-colors ${isCurrent ? 'font-medium text-primary' : 'text-slate-500'}`}>
+            <div className={`mt-3 text-center text-xs transition-colors ${isCurrent ? 'font-medium text-primary' : 'text-slate-500'}`}>
               {step.label}
             </div>
 
-            {/* 连接线 */}
+            {/* 连接线：锚定在圆圈中心水平位置，避免负 margin 造成错位 */}
             <div
               className={`absolute top-4 -z-10 h-1 w-full rounded-full transition-colors ${
                 index === 0 ? 'invisible' : isActive ? 'bg-primary' : 'bg-slate-200'

@@ -1,7 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Label } from '@/components/ui/label'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import {
     Server,
     Cpu,
@@ -10,16 +20,39 @@ import {
     RefreshCw,
     CheckCircle2,
     XCircle,
-    Loader2
+    Loader2,
+    FolderOpen,
+    Save,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
-import { getDeployStatus, DeployStatus } from '@/services/system'
+import toast from 'react-hot-toast'
+import {
+    getDeployStatus,
+    getBinPathsConfig,
+    saveBinPathsConfig,
+    DeployStatus,
+    BinPathsConfig,
+} from '@/services/system'
 
 export default function Monitor() {
     const [status, setStatus] = useState<DeployStatus | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+    // 路径配置
+    const [binPaths, setBinPaths] = useState<BinPathsConfig>({
+        ffmpeg_path: '',
+        whisper_model_dir: '',
+        effective_ffmpeg: '',
+        effective_ffprobe: '',
+        effective_whisper_dir: '',
+    })
+    const [editingFfmpeg, setEditingFfmpeg] = useState(false)
+    const [editingWhisper, setEditingWhisper] = useState(false)
+    const [ffmpegInput, setFfmpegInput] = useState('')
+    const [whisperInput, setWhisperInput] = useState('')
+    const [savingPath, setSavingPath] = useState(false)
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -28,7 +61,7 @@ export default function Monitor() {
             const data = await getDeployStatus()
             setStatus(data)
             setLastUpdated(new Date())
-        } catch (err) {
+        } catch {
             setError('无法连接到后端服务')
             setStatus(null)
         } finally {
@@ -36,12 +69,51 @@ export default function Monitor() {
         }
     }, [])
 
+    const fetchBinPaths = useCallback(async () => {
+        try {
+            const cfg = await getBinPathsConfig()
+            setBinPaths(cfg)
+            setFfmpegInput(cfg.ffmpeg_path)
+            setWhisperInput(cfg.whisper_model_dir)
+        } catch {
+            // 静默
+        }
+    }, [])
+
     useEffect(() => {
         fetchStatus()
-        // 自动刷新（每 30 秒）
+        fetchBinPaths()
         const interval = setInterval(fetchStatus, 30000)
         return () => clearInterval(interval)
-    }, [fetchStatus])
+    }, [fetchStatus, fetchBinPaths])
+
+    const handleSaveFfmpeg = async () => {
+        setSavingPath(true)
+        try {
+            await saveBinPathsConfig({ ffmpeg_path: ffmpegInput || '' })
+            toast.success('FFmpeg 路径已更新')
+            setEditingFfmpeg(false)
+            await Promise.all([fetchStatus(), fetchBinPaths()])
+        } catch {
+            // request 拦截器已弹 toast
+        } finally {
+            setSavingPath(false)
+        }
+    }
+
+    const handleSaveWhisper = async () => {
+        setSavingPath(true)
+        try {
+            await saveBinPathsConfig({ whisper_model_dir: whisperInput || '' })
+            toast.success('Whisper 模型目录已更新')
+            setEditingWhisper(false)
+            await Promise.all([fetchStatus(), fetchBinPaths()])
+        } catch {
+            // request 拦截器已弹 toast
+        } finally {
+            setSavingPath(false)
+        }
+    }
 
     const StatusBadge = ({ ok, label }: { ok: boolean; label?: string }) => (
         <Badge
@@ -76,7 +148,7 @@ export default function Monitor() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={fetchStatus}
+                            onClick={() => { fetchStatus(); fetchBinPaths(); }}
                             disabled={loading}
                         >
                             {loading ? (
@@ -187,7 +259,7 @@ export default function Monitor() {
                                     加载中…
                                 </div>
                             ) : status ? (
-                                <div className="space-y-2 text-sm">
+                                <div className="space-y-3 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">模型大小:</span>
                                         <span className="font-medium">{status.whisper.model_size}</span>
@@ -202,6 +274,29 @@ export default function Monitor() {
                                             <span className={status.whisper.downloaded ? 'font-medium text-green-600' : 'font-medium text-amber-600'}>
                                                 {status.whisper.downloaded ? '已就绪' : '未下载（首次转写会触发下载）'}
                                             </span>
+                                        </div>
+                                    )}
+
+                                    {/* 模型目录 + 编辑 */}
+                                    {status.whisper.model_dir && (
+                                        <div className="space-y-1.5 border-t pt-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-muted-foreground text-xs">模型目录</span>
+                                                <button
+                                                    type="button"
+                                                    className="text-xs text-blue-600 hover:underline"
+                                                    onClick={() => { setEditingWhisper(true); setWhisperInput(binPaths.whisper_model_dir) }}
+                                                >
+                                                    修改
+                                                </button>
+                                            </div>
+                                            <code className="flex items-center gap-1.5 rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-700">
+                                                <FolderOpen className="h-3 w-3 shrink-0 text-gray-400" />
+                                                <span className="truncate">{status.whisper.model_dir}</span>
+                                            </code>
+                                            {binPaths.whisper_model_dir && (
+                                                <span className="text-xs text-amber-600">手动配置路径生效中</span>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -225,7 +320,7 @@ export default function Monitor() {
                                     加载中…
                                 </div>
                             ) : status ? (
-                                <div className="space-y-2 text-sm">
+                                <div className="space-y-3 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">状态:</span>
                                         <span className={status.ffmpeg.available ? 'font-medium text-green-600' : 'font-medium text-red-600'}>
@@ -234,7 +329,30 @@ export default function Monitor() {
                                     </div>
                                     {!status.ffmpeg.available && (
                                         <div className="text-xs text-red-500">
-                                            请安装 FFmpeg 并添加到系统 PATH
+                                            请安装 FFmpeg 并添加到系统 PATH，或手动指定路径
+                                        </div>
+                                    )}
+
+                                    {/* 可执行文件路径 + 编辑 */}
+                                    {status.ffmpeg.executable && (
+                                        <div className="space-y-1.5 border-t pt-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-muted-foreground text-xs">可执行文件</span>
+                                                <button
+                                                    type="button"
+                                                    className="text-xs text-blue-600 hover:underline"
+                                                    onClick={() => { setEditingFfmpeg(true); setFfmpegInput(binPaths.ffmpeg_path) }}
+                                                >
+                                                    修改
+                                                </button>
+                                            </div>
+                                            <code className="flex items-center gap-1.5 rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-700">
+                                                <FolderOpen className="h-3 w-3 shrink-0 text-gray-400" />
+                                                <span className="truncate">{status.ffmpeg.executable}</span>
+                                            </code>
+                                            {binPaths.ffmpeg_path && (
+                                                <span className="text-xs text-amber-600">手动配置路径生效中</span>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -248,6 +366,76 @@ export default function Monitor() {
                     状态每 30 秒自动刷新
                 </div>
             </div>
+
+            {/* ── FFmpeg 路径编辑弹窗 ── */}
+            <Dialog open={editingFfmpeg} onOpenChange={open => !open && setEditingFfmpeg(false)}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>配置 FFmpeg 路径</DialogTitle>
+                        <DialogDescription>
+                            填写 ffmpeg 可执行文件的完整路径（如 /opt/homebrew/bin/ffmpeg）。
+                            留空则恢复自动检测（优先 FFMPEG_BIN_PATH 环境变量，其次系统 PATH）。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <Label>ffmpeg 完整路径</Label>
+                        <Input
+                            value={ffmpegInput}
+                            onChange={e => setFfmpegInput(e.target.value)}
+                            placeholder="留空 = 自动检测"
+                        />
+                        {binPaths.effective_ffmpeg && (
+                            <p className="text-muted-foreground text-xs">
+                                当前生效: <code className="font-mono">{binPaths.effective_ffmpeg}</code>
+                            </p>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditingFfmpeg(false)}>
+                            取消
+                        </Button>
+                        <Button onClick={handleSaveFfmpeg} disabled={savingPath}>
+                            {savingPath ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            保存
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Whisper 模型目录编辑弹窗 ── */}
+            <Dialog open={editingWhisper} onOpenChange={open => !open && setEditingWhisper(false)}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>配置 Whisper 模型目录</DialogTitle>
+                        <DialogDescription>
+                            指定 whisper 模型的父目录（其下应有 whisper/ 和/或 mlx-whisper/ 子目录）。
+                            留空则使用默认位置 backend/models/。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <Label>模型父目录</Label>
+                        <Input
+                            value={whisperInput}
+                            onChange={e => setWhisperInput(e.target.value)}
+                            placeholder="留空 = 默认 backend/models"
+                        />
+                        {binPaths.effective_whisper_dir && (
+                            <p className="text-muted-foreground text-xs">
+                                当前生效: <code className="font-mono">{binPaths.effective_whisper_dir}</code>
+                            </p>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditingWhisper(false)}>
+                            取消
+                        </Button>
+                        <Button onClick={handleSaveWhisper} disabled={savingPath}>
+                            {savingPath ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            保存
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </ScrollArea>
     )
 }

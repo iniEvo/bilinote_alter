@@ -31,7 +31,7 @@ export interface DeployStatus {
   }
   cuda: {
     available: boolean
-    /** 新增：torch 是否安装。轻量部署没装 torch 时为 false，避免误判为 CUDA 故障 */
+    /** torch 是否安装。轻量部署没装 torch 时为 false，避免误判为 CUDA 故障 */
     torch_installed?: boolean
     version: string | null
     gpu_name: string | null
@@ -39,11 +39,15 @@ export interface DeployStatus {
   whisper: {
     model_size: string
     transcriber_type: string
-    /** 新增：模型是否已完整下载（fast-whisper 看 model.bin / mlx 看 config.json） */
+    /** 模型是否已完整下载（fast-whisper 看 model.bin / mlx 看 config.json） */
     downloaded: boolean
+    /** 当前生效的模型目录 */
+    model_dir?: string
   }
   ffmpeg: {
     available: boolean
+    /** 当前生效的 ffmpeg 可执行文件路径 */
+    executable?: string
   }
 }
 
@@ -51,3 +55,23 @@ export const getDeployStatus = async (): Promise<DeployStatus> => {
   return await request.get('/deploy_status')
 }
 
+// ── 外部路径配置（FFmpeg / Whisper 模型目录）──────────────────────────
+
+export interface BinPathsConfig {
+  ffmpeg_path: string
+  whisper_model_dir: string
+  effective_ffmpeg: string
+  effective_ffprobe: string
+  effective_whisper_dir: string
+}
+
+export const getBinPathsConfig = async (): Promise<BinPathsConfig> => {
+  return await request.get('/bin_paths_config')
+}
+
+export const saveBinPathsConfig = async (data: {
+  ffmpeg_path?: string | null
+  whisper_model_dir?: string | null
+}): Promise<{ ffmpeg_path: string; whisper_model_dir: string }> => {
+  return await request.post('/bin_paths_config', data)
+}

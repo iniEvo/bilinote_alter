@@ -150,7 +150,12 @@ def list_recent_tasks(limit: int = 100, offset: int = 0, batch_id: str | None = 
     db = next(get_db())
     try:
         query = db.query(VideoTask).order_by(VideoTask.created_at.desc())
-        if batch_id:
+        if batch_id == '__none__':
+            # 特例：只取未归入任何项目的任务
+            query = query.filter(
+                (VideoTask.batch_id.is_(None)) | (VideoTask.batch_id == '')
+            )
+        elif batch_id:
             query = query.filter(VideoTask.batch_id == batch_id)
         tasks = query.offset(max(offset, 0)).limit(limit).all()
         return _attach_request_payload_list(tasks)

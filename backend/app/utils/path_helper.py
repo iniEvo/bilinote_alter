@@ -42,6 +42,19 @@ def get_data_dir():
 
 
 def get_model_dir(subdir: str = "whisper") -> str:
+    # 手动配置的模型目录优先（部署监控页可指定），其次按运行形态决定默认位置
+    try:
+        from app.services.bin_paths_config_manager import BinPathsConfigManager
+
+        configured = BinPathsConfigManager().get_config().get("whisper_model_dir", "")
+        if configured:
+            base_dir = os.path.expanduser(configured)
+            path = os.path.join(base_dir, subdir)
+            os.makedirs(path, exist_ok=True)
+            return path
+    except Exception:
+        pass
+
     # 判断是否为打包状态（PyInstaller）
     if getattr(sys, 'frozen', False):
         # exe 执行，放在 APPDATA 或 ~/.cache 下

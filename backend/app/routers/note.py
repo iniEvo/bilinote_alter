@@ -330,8 +330,9 @@ def _persist_prefetched_transcript(task_id: str, transcript: dict) -> None:
     logger.info(f'已写入客户端预取字幕缓存: {target} ({len(cleaned_segments)} 段)')
 
 
-def _resolve_effective_status(task_id: str, result=None, *, row=None):
-    result = result if result is not None else _load_note_result(task_id)
+def _resolve_effective_status(task_id: str, result=None, *, row=None, skip_result_load: bool = False):
+    if not skip_result_load:
+        result = result if result is not None else _load_note_result(task_id)
     status, message = _load_task_status(task_id, row=row)
     if result is not None:
         return TaskStatus.SUCCESS.value, ''
@@ -366,6 +367,33 @@ def _history_sort_priority(item: dict) -> tuple[int, float]:
 
 
 def _build_task_item(task_id: str, *, row=None, light: bool = False):
+    if light:
+        # 列表轮询(light)：不读 note JSON 文件——每条 result 上百 KB，
+        # 几百条任务全量读盘是 history/batch_status 变慢的主因。
+        # 状态只看 status 文件 + DB 行；result 置 None，详情页再单独拉全量。
+        status, message = _resolve_effective_status(task_id, result=None, row=row, skip_result_load=True)
+        request_payload = dict(getattr(row, 'request_payload_data', None) or {})
+        source_url = _canonical_video_url(
+            getattr(row, 'platform', None),
+            getattr(row, 'video_id', None),
+            getattr(row, 'source_url', None) or request_payload.get('video_url'),
+        )
+        if source_url and request_payload.get('video_url') != source_url:
+            request_payload['video_url'] = source_url
+        return {
+            'task_id': task_id,
+            'video_id': getattr(row, 'video_id', None),
+            'platform': getattr(row, 'platform', None),
+            'batch_id': getattr(row, 'batch_id', None),
+            'batch_name': getattr(row, 'batch_name', None),
+            'source_url': source_url,
+            'title': getattr(row, 'title', None),
+            'created_at': _format_created_at(getattr(row, 'created_at', None)),
+            'status': status,
+            'message': message,
+            'result': None,
+            'request_payload': request_payload,
+        }
     result = _load_note_result(task_id)
     status, message = _resolve_effective_status(task_id, result=result, row=row)
     request_payload = dict(getattr(row, 'request_payload_data', None) or {})
@@ -391,9 +419,7 @@ def _build_task_item(task_id: str, *, row=None, light: bool = False):
         'request_payload': request_payload,
     }
     if light:
-        # 列表轮询只需要状态/标题/链接；重型 result(transcript/markdown/audio_meta)
-        # 会让单 batch 响应膨胀到十几 MB 并触发前端 10s 超时。
-        # 详情页通过 /history/{task_id} 单独拉取完整 result。
+        # 防御：理论上不会走到这里（light 已在开头 return）
         item['result'] = None
     return item
 

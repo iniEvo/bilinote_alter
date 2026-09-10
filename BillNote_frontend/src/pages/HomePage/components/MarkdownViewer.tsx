@@ -436,12 +436,12 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center space-y-4 text-neutral-500">
+      <div className="flex h-full w-full flex-col items-center justify-center space-y-4 text-neutral-500">
         <StepBar steps={steps} currentStep={taskStatus} />
         <Loading className="h-5 w-5" />
-        <div className="text-center text-sm">
-          <p className="text-lg font-bold">正在生成笔记，请稍候…</p>
-          <p className="mt-2 text-xs text-neutral-500">这可能需要几秒钟时间，取决于视频长度</p>
+        <div className="text-center">
+          <p className="text-lg font-bold text-slate-800">正在生成笔记，请稍候…</p>
+          <p className="mt-2 text-xs text-slate-500">这可能需要几秒钟时间，取决于视频长度</p>
         </div>
       </div>
     )
@@ -449,11 +449,13 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
 
   if (status === 'idle') {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center space-y-3 text-neutral-500">
-        <Idle />
+      <div className="flex h-full w-full flex-col items-center justify-center space-y-3 text-neutral-500">
+        <div className="empty-state-visual flex items-center justify-center p-10">
+          <Idle />
+        </div>
         <div className="text-center">
-          <p className="text-lg font-bold">输入视频链接并点击"生成笔记"</p>
-          <p className="mt-2 text-xs text-neutral-500">支持哔哩哔哩、YouTube 、抖音等视频平台</p>
+          <p className="text-lg font-bold text-slate-800">输入视频链接并点击「生成笔记」</p>
+          <p className="mt-2 text-xs text-slate-500">支持哔哩哔哩、YouTube、抖音、快手与本地视频</p>
         </div>
       </div>
     )
@@ -462,8 +464,10 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
   if (status === 'failed' && !isMultiVersion) {
     const isRetryable = String(currentTask?.status || '').toUpperCase() === 'RETRYABLE'
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 space-y-3">
-        <Error />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 space-y-3">
+        <div className="empty-state-visual flex items-center justify-center p-10">
+          <Error />
+        </div>
         <div className="text-center">
           <p className={`text-lg font-bold ${isRetryable ? 'text-amber-500' : 'text-red-500'}`}>
             {isRetryable ? '网络连接中断，笔记未完成' : '笔记生成失败'}
