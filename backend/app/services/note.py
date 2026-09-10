@@ -494,6 +494,17 @@ class NoteGenerator:
             logger.info(f"检测到音频缓存 ({audio_cache_file})，直接读取")
             try:
                 data = json.loads(audio_cache_file.read_text(encoding="utf-8"))
+                cached_fp = data.get("file_path") or ""
+                # 临时文件清理事件可能已删除实际音频文件，缓存却还在：
+                # 直接复用会导致转录时 ffmpeg 打不开文件（Failed to load audio）。
+                # 文件不存在时视为缓存失效，删掉缓存并重新下载。
+                if not cached_fp or not os.path.exists(cached_fp):
+                    logger.warning(f"音频缓存文件不存在 ({cached_fp})，将重新下载")
+                    try:
+                        audio_cache_file.unlink()
+                    except Exception:
+                        pass
+                    raise FileNotFoundError("cached audio file missing")
                 return AudioDownloadResult(**data)
             except Exception as e:
                 logger.warning(f"读取音频缓存失败，将重新下载：{e}")

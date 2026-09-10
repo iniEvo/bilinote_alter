@@ -3,7 +3,7 @@ import json
 import os
 import uuid
 from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Optional
 from urllib.parse import urlparse
@@ -116,6 +116,21 @@ def _is_task_recently_enqueued(row) -> bool:
         except ValueError:
             return False
     return datetime.now() - created_at <= _STALE_PENDING_GRACE
+
+
+def _format_created_at(dt) -> str | None:
+    """规范化时间输出：naive(UTC) → 标准 ISO 8601（T 分隔 + 时区偏移）。
+
+    SQLite 的 CURRENT_TIMESTAMP 存 UTC 且无微秒，datetime.isoformat() 输出
+    "2026-09-08 09:47:00"（空格分隔），直接 +'Z' 得到 "2026-09-08 09:47:00Z"，
+    部分 JS 引擎（Safari/JSC）解析失败或按本地时区误读。统一转成
+    "2026-09-08T09:47:00+00:00" 后前端 new Date() 会正确转到本地时区。
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 
 def _fallback_task_status(task_id: str, *, row=None):
@@ -369,7 +384,7 @@ def _build_task_item(task_id: str, *, row=None):
         'batch_name': getattr(row, 'batch_name', None),
         'source_url': source_url,
         'title': getattr(row, 'title', None),
-        'created_at': (row.created_at.isoformat() + 'Z') if getattr(row, 'created_at', None) else None,
+        'created_at': _format_created_at(getattr(row, 'created_at', None)),
         'status': status,
         'message': message,
         'result': result,
@@ -449,7 +464,7 @@ def _find_duplicate_task(video_id: Optional[str], video_url: str, platform: str)
         'batch_name': getattr(row, 'batch_name', None),
         'source_url': source_url,
         'title': row.title,
-        'created_at': (row.created_at.isoformat() + 'Z') if row.created_at else None,
+        'created_at': _format_created_at(row.created_at),
         'status': status,
         'message': message,
         'result_exists': bool(result),
