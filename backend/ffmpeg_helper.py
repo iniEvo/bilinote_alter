@@ -38,31 +38,32 @@ def _load_dotenv_from_multiple_paths():
 
 
 _load_dotenv_from_multiple_paths()
+def _ensure_ffmpeg_in_path():
+    """确保 ffmpeg 所在目录在 PATH 中，兼容 FFMPEG_BIN_PATH 为文件或目录。"""
+    ffmpeg_bin_path = os.getenv("FFMPEG_BIN_PATH")
+    if not ffmpeg_bin_path:
+        return
+    logger.info(f"FFMPEG_BIN_PATH: {ffmpeg_bin_path}")
+    if os.path.isdir(ffmpeg_bin_path):
+        os.environ["PATH"] = ffmpeg_bin_path + os.pathsep + os.environ.get("PATH", "")
+        logger.info(f"使用FFMPEG_BIN_PATH (目录): {ffmpeg_bin_path}")
+    elif os.path.isfile(ffmpeg_bin_path):
+        bin_dir = os.path.dirname(ffmpeg_bin_path)
+        os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+        logger.info(f"使用FFMPEG_BIN_PATH (可执行文件): {ffmpeg_bin_path}")
+
+
 def check_ffmpeg_exists() -> bool:
     """
     检查 ffmpeg 是否可用。优先使用 FFMPEG_BIN_PATH 环境变量指定的路径。
     """
-    ffmpeg_bin_path = os.getenv("FFMPEG_BIN_PATH")
-    logger.info(f"FFMPEG_BIN_PATH: {ffmpeg_bin_path}")
-    if ffmpeg_bin_path and os.path.isdir(ffmpeg_bin_path):
-        os.environ["PATH"] = ffmpeg_bin_path + os.pathsep + os.environ.get("PATH", "")
-        logger.info(f"使用FFMPEG_BIN_PATH: {ffmpeg_bin_path}")
-    else:
-        # 遍历系统PATH寻找ffmpeg.exe
-        system_path = os.environ.get("PATH", "")
-        path_dirs = system_path.split(os.pathsep)
-        for path_dir in path_dirs:
-            ffmpeg_exe_path = os.path.join(path_dir, "ffmpeg.exe")
-            if os.path.isfile(ffmpeg_exe_path):
-                os.environ["PATH"] = path_dir + os.pathsep + system_path
-                logger.info(f"在系统PATH中找到ffmpeg: {path_dir}")
-                break
+    _ensure_ffmpeg_in_path()
     try:
         subprocess.run([ffmpeg_executable(), "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         logger.info("ffmpeg 已安装")
         return True
-    except (FileNotFoundError, OSError, subprocess.CalledProcessError):
-        logger.info("ffmpeg 未安装")
+    except (FileNotFoundError, OSError, subprocess.CalledProcessError) as exc:
+        logger.info(f"ffmpeg 未安装 ({type(exc).__name__}: {exc})")
         return False
 
 

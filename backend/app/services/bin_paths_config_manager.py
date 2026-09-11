@@ -56,10 +56,17 @@ class BinPathsConfigManager:
             data["whisper_model_dir"] = whisper_model_dir.strip()
 
         # 轻量校验：配置非空时确保可落地
-        if data.get("ffmpeg_path"):
-            p = Path(data["ffmpeg_path"])
+        # 兼容目录与可执行文件两种语义：目录 → 自动归一化为 <dir>/ffmpeg
+        ffmpeg_val = data.get("ffmpeg_path")
+        if ffmpeg_val:
+            p = Path(ffmpeg_val)
             if p.is_dir():
-                raise ValueError(f"FFmpeg 路径不能是目录，请填写 ffmpeg 可执行文件完整路径（如 /usr/local/bin/ffmpeg）: {p}")
+                p = p / "ffmpeg"
+                data["ffmpeg_path"] = str(p)
+            if not p.is_file():
+                raise ValueError(
+                    f"FFmpeg 路径无效（既不是可执行文件也不是含 ffmpeg 的目录）: {data['ffmpeg_path']}"
+                )
         if data.get("whisper_model_dir"):
             target = Path(resolve_app_path(data["whisper_model_dir"]))
             try:
