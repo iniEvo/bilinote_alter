@@ -215,16 +215,19 @@ const NoteForm = () => {
   const {
     addBatchGroup,
     addPendingTask,
-    currentTaskId,
     keepFormDraft,
     setCurrentTask,
     setKeepFormDraft,
-    getCurrentTask,
     retryTask,
     upsertHistoryTask,
     updateTaskContent,
     fetchAllBatches,
   } = useTaskStore()
+  // 只订阅当前任务对象本身（zustand 按引用比较），
+  // 而不是整份 store：轮询更新 tasks 数组里的其他任务时，
+  // 当前任务引用不变则 NoteForm 不重渲染，避免打字卡顿。
+  const currentTaskId = useTaskStore(state => state.currentTaskId)
+  const currentTask = useTaskStore(state => state.tasks.find(t => t.id === state.currentTaskId) || null)
   const { loadEnabledModels, modelList } = useModelStore()
   const uniqueModels = useMemo(
     () => modelList.filter((model, index, list) => list.findIndex(item => item.model_name === model.model_name) === index),
@@ -245,7 +248,6 @@ const NoteForm = () => {
       batch_video_urls: '',
     },
   })
-  const currentTask = getCurrentTask()
   const platform = useWatch({ control: form.control, name: 'platform' }) as string
   const videoUnderstandingEnabled = useWatch({ control: form.control, name: 'video_understanding' })
   const editing = !keepFormDraft && !!currentTask?.id
@@ -312,7 +314,7 @@ const NoteForm = () => {
     })
   }, [currentTask, currentTaskId, uniqueModels, form])
 
-  const activeTask = keepFormDraft ? null : getCurrentTask()
+  const activeTask = keepFormDraft ? null : currentTask
   const generating = !['SUCCESS', 'FAILED', 'RETRYABLE', undefined].includes(activeTask?.status)
 
   const handleFileUpload = async (file: File, cb: (url: string) => void) => {

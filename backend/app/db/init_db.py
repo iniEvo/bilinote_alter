@@ -25,12 +25,17 @@ def _ensure_video_tasks_columns(engine):
         statements.append('ALTER TABLE video_tasks ADD COLUMN request_payload TEXT')
 
     if not statements:
-        return
+        pass
+    else:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
 
+    # 索引迁移独立于列迁移：老库缺索引时也补上（CREATE INDEX IF NOT EXISTS 幂等）
     with engine.begin() as conn:
-        for statement in statements:
-            conn.execute(text(statement))
         conn.execute(text('CREATE INDEX IF NOT EXISTS ix_video_tasks_batch_id ON video_tasks (batch_id)'))
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_video_tasks_video_id_platform ON video_tasks (video_id, platform)'))
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_video_tasks_created_at ON video_tasks (created_at)'))
 
 
 def init_db():

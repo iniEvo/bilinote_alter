@@ -2,3 +2,30 @@
 node = "22"
 "npm:pnpm" = "9.7.1"
 python = "3.12.13"
+
+# ---- mise tasks：本地源码方式启停 BiliNote ----
+# 用法：
+#   mise run dev          # 同时启动后端 + 前端（一键）
+#   mise run stop         # 停掉整套服务（端口 + pid 文件双重清理）
+#   mise run dev-backend  # 只启后端（前台，Ctrl+C 退出）
+#   mise run dev-frontend # 只启前端（前台，Ctrl+C 退出）
+#
+# 防重复启动：以监听端口为权威判据，端口被占即复用，保证同一时刻只有一套服务
+# （后端 8483 + 前端 3015）。实现见 .mise/scripts/dev.sh。
+# ffmpeg 路径由 backend/.env 的 FFMPEG_BIN_PATH 提供，无需额外注入 PATH。
+
+[tasks.dev]
+description = "一键启动后端 + 前端（已运行则复用）"
+run = "/bin/bash ${MISE_PROJECT_ROOT}/.mise/scripts/dev.sh up"
+
+[tasks.stop]
+description = "停止后端 + 前端（本套服务）"
+run = "/bin/bash ${MISE_PROJECT_ROOT}/.mise/scripts/dev.sh stop"
+
+[tasks.dev-backend]
+description = "前台启动后端（mise run dev-backend）"
+run = "/bin/bash ${MISE_PROJECT_ROOT}/.mise/scripts/dev.sh backend"
+
+[tasks.dev-frontend]
+description = "前台启动前端（mise run dev-frontend）"
+run = "/bin/bash ${MISE_PROJECT_ROOT}/.mise/scripts/dev.sh frontend"

@@ -983,7 +983,9 @@ export const useTaskStore = create<TaskStore>()(
       hydrateHistory: async () => {
         try {
           const [history, allBatches] = await Promise.all([
-            getHistory({ limit: HISTORY_PAGE_SIZE, offset: 0 }),
+            // 首页列表只需标题/状态做卡片展示，light=true 避免读全量
+            // note JSON（20×62KB≈1.2MB 磁盘 IO + 解析），全量内容点卡片时再拉。
+            getHistory({ limit: HISTORY_PAGE_SIZE, offset: 0, light: true }),
             getAllBatches().catch(() => []),
           ])
           if (!Array.isArray(history) || history.length === 0) {
@@ -1048,21 +1050,43 @@ export const useTaskStore = create<TaskStore>()(
           // 会让 224 条任务的 batch 返回 12MB+、耗时 20s 卡死页面。
           // 点击具体任务时 setCurrentTask 会再单独拉全量详情。
           const unloaded = get()._unloadedBatchIds || []
-          if (unloaded.length > 0) {
-            const batchResults = await Promise.all(
-              unloaded.map(bid => getHistory({ limit: 500, offset: 0, batch_id: bid, light: true }).catch(() => []))
-            )
+          const unloadedBatchHistory = (
+            unloaded.length > 0
+              ? await Promise.all(
+                  unloaded.map(bid => getHistory({ limit: 500, offset: 0, batch_id: bid, light: true }).catch(() => []))
+                )
+              : []
+          ) as HistoryItem[][]
+
+          // 补拉未归入项目的全部单条笔记（batch_id=__none__），
+          // 避免它们被项目内的大量任务挤出最近 N 条窗口导致列表显示不全。
+          // light=true：列表只要标题/状态；点击卡片时 setCurrentTask 会拉全量正文。
+          let singles: HistoryItem[] = []
+          try {
+            const res = await getHistory({ limit: 500, offset: 0, batch_id: '__none__', light: true }).catch(() => [])
+            if (Array.isArray(res)) singles = res
+          } catch {
+            // 静默：旧后端不支持 __none__ 时跳过
+          }
+
+          // 合并 unloaded batches 与 __none__ 补拉为单次 set，减少组件重渲染
+          if (unloaded.length > 0 || singles.length > 0) {
             set(state => {
               const merged = [...state.tasks]
-              for (const batchHistory of batchResults) {
-                if (!Array.isArray(batchHistory)) continue
-                for (const item of batchHistory) {
+              const seen = new Set(merged.map(t => t.id))
+              const appendItems = (items: HistoryItem[]) => {
+                for (const item of items) {
+                  if (!item?.task_id || seen.has(item.task_id)) continue
                   const task = createHistoryTask(item)
-                  const idx = merged.findIndex(existing => existing.id === task.id)
-                  if (idx >= 0) merged[idx] = { ...merged[idx], ...task }
-                  else merged.push(task)
+                  merged.push(task)
+                  seen.add(task.task_id)
                 }
               }
+              for (const batchHistory of unloadedBatchHistory) {
+                if (!Array.isArray(batchHistory)) continue
+                appendItems(batchHistory)
+              }
+              appendItems(singles)
               merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               return {
                 tasks: merged,
@@ -1070,31 +1094,6 @@ export const useTaskStore = create<TaskStore>()(
                 _unloadedBatchIds: [],
               }
             })
-          }
-
-          // 补拉未归入项目的全部单条笔记（batch_id=__none__），
-          // 避免它们被项目内的大量任务挤出最近 N 条窗口导致列表显示不全。
-          // light=true：列表只要标题/状态；点击卡片时 setCurrentTask 会拉全量正文。
-          try {
-            const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__', light: true }).catch(() => [])
-            if (Array.isArray(singles) && singles.length > 0) {
-              set(state => {
-                const merged = [...state.tasks]
-                for (const item of singles) {
-                  const task = createHistoryTask(item)
-                  const idx = merged.findIndex(existing => existing.id === task.id)
-                  if (idx >= 0) merged[idx] = { ...merged[idx], ...task }
-                  else merged.push(task)
-                }
-                merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                return {
-                  tasks: merged,
-                  batchGroups: buildBatchGroups(merged, get().batchGroups),
-                }
-              })
-            }
-          } catch {
-            // 静默：旧后端不支持 __none__ 时跳过
           }
 
           // 强制同步已有 batch 的任务状态：persist 的 batchItems 可能停留在
@@ -1119,31 +1118,6 @@ export const useTaskStore = create<TaskStore>()(
             return
           }
 
-          set(state => {
-            const existingMap = new Map(state.tasks.map(task => [task.id, task]))
-            const nextTasks: Task[] = history.map((item: HistoryItem) => {
-              const existing = existingMap.get(item.task_id)
-              return existing ? patchHistoryCardTask(existing, item) : createHistoryTask(item)
-            })
-
-            // 合并而不是替换：保留 store 中已有但不在本次轮询结果里的任务
-            //（例如通过 __none__ 补拉进来的无项目笔记，轮询的最近 100 条
-            //  可能覆盖不到它们）。轮询只更新后端返回的任务，不删除本地已加载的。
-            const nextIds = new Set(nextTasks.map(t => t.id))
-            const retained = state.tasks.filter(t => !nextIds.has(t.id))
-            const merged = [...retained, ...nextTasks]
-            merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-            return {
-              tasks: merged,
-              batchGroups: buildBatchGroups(merged, state.batchGroups),
-              currentTaskId: state.currentTaskId,
-              keepFormDraft: state.keepFormDraft,
-              historyHasMore: history.length >= limit,
-              hasHydrated: true,
-            }
-          })
-
           // 并行拉取各项目状态（串行会累加延迟：大项目 1.4s × 4 ≈ 5s 卡住轮询）
           const groups = get().batchGroups
           const batchResults = await Promise.all(
@@ -1157,30 +1131,64 @@ export const useTaskStore = create<TaskStore>()(
               }
             })
           )
-          for (const r of batchResults) {
-            if (!r) continue
-            const { group, batch } = r
-            get().reconcileBatchStatus(
-              group.id,
-              batch.items as HistoryItem[],
-              {
-                id: group.id,
-                name: batch.batch_name || group.name,
-                createdAt: group.createdAt,
-                platform: group.platform,
-                total: batch.summary.total,
-                success: batch.summary.success,
-                failed: batch.summary.failed,
-                pending: batch.summary.pending,
-                paused: batch.summary.paused,
-                canceled: batch.summary.canceled,
-                controlState: batch.control_state,
-                taskIds: group.taskIds,
-              },
-              batch.control_state,
-              batch.batch_name,
-            )
-          }
+
+          // 单次 set 合并所有数据，避免每个 batch 一次 set 导致的
+          // buildBatchGroups × N 重复计算 + 组件树级联重渲染（N+1 → 1）
+          set(state => {
+            // — 1. 合并 history light 数据 —
+            const existingMap = new Map(state.tasks.map(task => [task.id, task]))
+            const nextTasks: Task[] = history.map((item: HistoryItem) => {
+              const existing = existingMap.get(item.task_id)
+              return existing ? patchHistoryCardTask(existing, item) : createHistoryTask(item)
+            })
+            const nextIds = new Set(nextTasks.map(t => t.id))
+            const retained = state.tasks.filter(t => !nextIds.has(t.id))
+            let mergedTasks = [...retained, ...nextTasks]
+            mergedTasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+            // — 2. 合并各 batch 的 status 数据（仅 buildBatchGroups 一次） —
+            const batchItems: Record<string, HistoryItem[]> = { ...state.batchItems }
+            const mergedMap = new Map(mergedTasks.map(task => [task.id, task]))
+            let nextBatchGroups = state.batchGroups.map(group => ({ ...group }))
+            for (const r of batchResults) {
+              if (!r) continue
+              const { group, batch } = r
+              const items = (batch.items || []) as HistoryItem[]
+              // 合并 batch tasks（复用 reconcileBatchStatus 相同逻辑）
+              for (const item of items) {
+                const existing = mergedMap.get(item.task_id)
+                const patched = existing ? patchHistoryCardTask(existing, item) : createHistoryTask(item)
+                mergedMap.set(patched.id, patched)
+              }
+              batchItems[group.id] = items
+              // patch 该 batch 的控制状态和计数
+              const target = nextBatchGroups.find(g => g.id === group.id)
+              if (target) {
+                target.name = batch.batch_name || target.name
+                target.total = batch.summary.total
+                target.success = batch.summary.success
+                target.failed = batch.summary.failed
+                target.pending = batch.summary.pending
+                target.paused = batch.summary.paused
+                target.canceled = batch.summary.canceled
+                target.controlState = resolveBatchControlState(batch.control_state, batch.summary)
+                target.taskIds = items.map(item => item.task_id)
+              }
+            }
+            mergedTasks = [...mergedMap.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            // buildBatchGroups 只调一次（原来每个 batch 调一次）
+            const batchGroups = buildBatchGroups(mergedTasks, nextBatchGroups)
+
+            return {
+              tasks: mergedTasks,
+              batchGroups,
+              batchItems,
+              currentTaskId: state.currentTaskId,
+              keepFormDraft: state.keepFormDraft,
+              historyHasMore: history.length >= limit,
+              hasHydrated: true,
+            }
+          })
         } catch (error) {
           console.error('刷新历史列表失败:', error)
         }

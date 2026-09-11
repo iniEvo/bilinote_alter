@@ -7,8 +7,45 @@ import Error from '@/components/Lottie/error.tsx'
 import Loading from '@/components/Lottie/Loading.tsx'
 import Idle from '@/components/Lottie/Idle.tsx'
 import StepBar from '@/pages/HomePage/components/StepBar.tsx'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+// prism-light：只打包用到的语言，避免全量 Prism（2-3MB）进首屏 bundle
+import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { atomDark as codeStyle } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript'
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
+import python from 'react-syntax-highlighter/dist/esm/languages/prism/python'
+import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash'
+import json from 'react-syntax-highlighter/dist/esm/languages/prism/json'
+import markdown from 'react-syntax-highlighter/dist/esm/languages/prism/markdown'
+import diff from 'react-syntax-highlighter/dist/esm/languages/prism/diff'
+import java from 'react-syntax-highlighter/dist/esm/languages/prism/java'
+import cpp from 'react-syntax-highlighter/dist/esm/languages/prism/cpp'
+import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql'
+import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml'
+import markup from 'react-syntax-highlighter/dist/esm/languages/prism/markup'
+
+// 常用代码语言按需注册（llm 生成的笔记常见这些），未注册的语言回退为纯文本
+SyntaxHighlighter.registerLanguage('javascript', javascript)
+SyntaxHighlighter.registerLanguage('typescript', typescript)
+SyntaxHighlighter.registerLanguage('python', python)
+SyntaxHighlighter.registerLanguage('bash', bash)
+SyntaxHighlighter.registerLanguage('json', json)
+SyntaxHighlighter.registerLanguage('markdown', markdown)
+SyntaxHighlighter.registerLanguage('diff', diff)
+SyntaxHighlighter.registerLanguage('java', java)
+SyntaxHighlighter.registerLanguage('cpp', cpp)
+SyntaxHighlighter.registerLanguage('sql', sql)
+SyntaxHighlighter.registerLanguage('yaml', yaml)
+SyntaxHighlighter.registerLanguage('markup', markup)
+
+// 语言别名：把常见简写映射到已注册语言
+SyntaxHighlighter.alias('sh', 'bash')
+SyntaxHighlighter.alias('shell', 'bash')
+SyntaxHighlighter.registerLanguage('shell', bash)
+SyntaxHighlighter.registerLanguage('js', javascript)
+SyntaxHighlighter.registerLanguage('ts', typescript)
+SyntaxHighlighter.registerLanguage('py', python)
+SyntaxHighlighter.registerLanguage('html', markup)
+SyntaxHighlighter.registerLanguage('xml', markup)
 import Zoom from 'react-medium-image-zoom'
 import 'react-medium-image-zoom/dist/styles.css'
 import gfm from 'remark-gfm'
@@ -325,7 +362,10 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status, loadingTaskId })
   // 确保baseURL没有尾部斜杠
   const baseURL = (String(import.meta.env.VITE_API_BASE_URL || '').replace('/api','') || '').replace(/\/$/, '')
   const getCurrentTask = useTaskStore.getState().getCurrentTask
-  const currentTask = useTaskStore(state => state.getCurrentTask())
+  // 订阅 tasks + currentTaskId 组合取当前任务，而非调用 getCurrentTask()：
+  // 后者每次 store 更新都返回（可能相同引用的）对象，破坏 memo 且无法比较；
+  // 前者只在 currentTaskId 变化或当前任务对象被更新时触发重渲染。
+  const currentTask = useTaskStore(state => state.tasks.find(t => t.id === state.currentTaskId) || null)
   const taskStatus = currentTask?.status || 'PENDING'
   const retryTask = useTaskStore.getState().retryTask
   const providers = useProviderStore.getState().provider

@@ -27,7 +27,13 @@ export const useTaskPolling = (interval = 3000) => {
       // 无活跃任务时跳过状态轮询，但保留上面的历史同步。
       if (pendingTasks.length === 0) return
 
-      for (const task of pendingTasks) {
+      // 仅对「不在任何 batch 内的单条任务」逐个轮询状态：
+      // batch 内的任务已被 refreshHistoryList → getBatchStatus(batchId, light) 覆盖，
+      // 无需再逐个调 /task_status/{id}（原实现串行 200+ 请求是轮询卡顿主因之一）。
+      const orphanTasks = pendingTasks.filter(task => !task.batchId)
+      if (orphanTasks.length === 0) return
+
+      for (const task of orphanTasks) {
         try {
           const res = await get_task_status(task.id)
           const { status } = res

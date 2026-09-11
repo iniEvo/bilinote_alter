@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils.ts'
 import type { Task } from '@/store/taskStore'
 import { useTaskStore } from '@/store/taskStore'
 import { useSystemStore } from '@/store/configStore'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
 interface TaskHistoryCardProps {
   task: Task
@@ -57,7 +57,7 @@ const statusClassName = (status: string) => {
   return 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200/70'
 }
 
-const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHistoryCardProps) => {
+const TaskHistoryCard = memo(function TaskHistoryCard({ task, selected, onSelect, onDelete, onRetry }: TaskHistoryCardProps) {
   const showCover = useSystemStore(state => state.showNoteCover)
   const fetchAllBatches = useTaskStore(state => state.fetchAllBatches)
   const moveTaskToProject = useTaskStore(state => state.moveTaskToProject)
@@ -344,6 +344,6 @@ const TaskHistoryCard = ({ task, selected, onSelect, onDelete, onRetry }: TaskHi
       </div>
     </>
   )
-}
+})
 
 export default TaskHistoryCard

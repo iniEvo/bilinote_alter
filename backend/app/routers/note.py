@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from app.db.video_task_dao import (
+    _cached_load_task_status,
     clear_batch_by_id,
     rename_batch,
     move_task_to_batch,
@@ -266,40 +267,16 @@ def _load_note_result(task_id: str):
         return json.load(f)
 
 
-def _fallback_failed_message(*, platform: Optional[str], source_url: Optional[str], video_id: Optional[str]) -> str:
-    if platform == 'douyin':
-        target = video_id or extract_video_id(source_url or '', 'douyin') or '该视频'
-        return (
-            f'抖音视频 {target} 可能已删除、不可访问，或详情接口未返回有效视频信息。'
-            '请检查链接是否仍可打开，或稍后重试。'
-        )
-    return '任务失败，未写入详细原因'
-
-
 def _resolve_failed_message(status: Optional[str], message: Optional[str], *, row=None) -> str:
-    text = str(message or '').strip()
-    if status != TaskStatus.FAILED.value:
-        return text
-    if text:
-        return text
-    platform = getattr(row, 'platform', None) if row else None
-    source_url = getattr(row, 'source_url', None) if row else None
-    video_id = getattr(row, 'video_id', None) if row else None
-    return _fallback_failed_message(platform=platform, source_url=source_url, video_id=video_id)
+    # 委托到 dao 层实现，保持单一事实来源（dao 的 status 缓存读取也用它）
+    from app.db.video_task_dao import _resolve_failed_status_message
+    return _resolve_failed_status_message(status, message, row=row)
 
 
 def _load_task_status(task_id: str, *, row=None):
-    status_path = task_status_path(task_id)
-    if not status_path.exists():
-        return None, ''
-    try:
-        with status_path.open('r', encoding='utf-8') as f:
-            status_content = json.load(f)
-        status = status_content.get('status')
-        message = _resolve_failed_message(status, status_content.get('message', ''), row=row)
-        return status, message
-    except Exception:
-        return None, ''
+    # TTL 缓存：轮询每轮对所有任务读 status 文件（~585 次 stat/open），
+    # 状态文件仅在任务生命周期内变化，缓存 2s 即可把磁盘 IO 降一个量级。
+    return _cached_load_task_status(task_id, row=row)
 
 
 def _persist_prefetched_transcript(task_id: str, transcript: dict) -> None:

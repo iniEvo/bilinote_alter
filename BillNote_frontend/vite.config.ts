@@ -41,6 +41,26 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    // 预构建 react-syntax-highlighter 的 prism 语言子路径：MarkdownViewer 按需注册
+    // 了 12 个语言模块，若不在 optimizeDeps 中声明，Vite dev 运行时才按需预构建，
+    // 会触发 "Outdated Optimize Dep" 504 中止请求，导致懒加载的 Home 页崩溃。
+    optimizeDeps: {
+      include: [
+        'react-syntax-highlighter',
+        'react-syntax-highlighter/dist/esm/languages/prism/javascript',
+        'react-syntax-highlighter/dist/esm/languages/prism/typescript',
+        'react-syntax-highlighter/dist/esm/languages/prism/python',
+        'react-syntax-highlighter/dist/esm/languages/prism/bash',
+        'react-syntax-highlighter/dist/esm/languages/prism/json',
+        'react-syntax-highlighter/dist/esm/languages/prism/markdown',
+        'react-syntax-highlighter/dist/esm/languages/prism/diff',
+        'react-syntax-highlighter/dist/esm/languages/prism/java',
+        'react-syntax-highlighter/dist/esm/languages/prism/cpp',
+        'react-syntax-highlighter/dist/esm/languages/prism/sql',
+        'react-syntax-highlighter/dist/esm/languages/prism/yaml',
+        'react-syntax-highlighter/dist/esm/languages/prism/markup',
+      ],
+    },
     build: {
       rollupOptions: {
         output: {

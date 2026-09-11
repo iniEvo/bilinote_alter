@@ -83,9 +83,9 @@ async def lifespan(app: FastAPI):
 
         logger.info("[startup 6/6] 恢复卡住的中间状态任务")
         try:
-            from app.utils.output_paths import JSON_OUTPUT_DIR
+            from app.utils.output_paths import JSON_OUTPUT_DIR, note_json_path
             from app.enmus.task_status_enums import TaskStatus
-            import tempfile
+            from app.db.video_task_dao import list_all_task_ids
             json_dir = JSON_OUTPUT_DIR
             stuck_statuses = {
                 TaskStatus.TRANSCRIBING.value,
@@ -98,19 +98,25 @@ async def lifespan(app: FastAPI):
                 TaskStatus.PENDING.value,
             }
             recovered = 0
-            for p in json_dir.glob("*.status.json"):
+            # 优化：从 DB 取 task_id 集合（轻量查询，不反序列化 request_payload），
+            # 跳过已有 result JSON 的终态任务，把启动期扫描从"全目录 glob"降到
+            # "DB 行数 × 次 stat"（538 vs 790+）。
+            task_ids = list_all_task_ids()
+            for task_id in task_ids:
+                if note_json_path(task_id).exists():
+                    continue  # result 文件存在 → 任务已终态，无需检查 status 文件
+                status_path = json_dir / f"{task_id}.status.json"
+                if not status_path.exists():
+                    continue
                 try:
-                    raw = p.read_text(encoding="utf-8")
-                    st = json.loads(raw).get("status", "")
+                    st = json.loads(status_path.read_text(encoding="utf-8")).get("status", "")
                 except Exception:
                     continue
                 if st in stuck_statuses:
-                    task_id = p.name.replace(".status.json", "")
-                    # 重启导致的中断属于瞬时错误，归为 RETRYABLE（可重试），前端轮询时会重新触发
                     new_data = {"status": TaskStatus.RETRYABLE.value, "message": f"后端重启时任务被中断，请点击重试 (原状态: {st})"}
-                    tmp = p.with_suffix(".tmp")
+                    tmp = status_path.with_suffix(".tmp")
                     tmp.write_text(json.dumps(new_data, ensure_ascii=False, indent=2), encoding="utf-8")
-                    tmp.replace(p)
+                    tmp.replace(status_path)
                     recovered += 1
             if recovered:
                 logger.info(f"  共 {recovered} 个卡住任务已标记为可重试（RETRYABLE）")

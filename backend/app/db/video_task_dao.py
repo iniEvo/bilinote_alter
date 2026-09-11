@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Optional
 
 from app.db.engine import get_db
@@ -6,6 +7,71 @@ from app.db.models.video_tasks import VideoTask
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# ── 任务状态文件的进程内 TTL 缓存 ──────────────────────────────
+# 前端每 10s 轮询一次 /history + /batch_status/{id}，light 模式下每条任务都要
+# stat + open + json.load 一次 {task_id}.status.json（46B，但每轮 ~585 次系统调用）。
+# 状态文件很小且只在任务生命周期内变化（6-8 次写入），缓存数秒即可把轮询的
+# 磁盘 IO 从 O(任务数) 降到 O(变更数)。
+_STATUS_CACHE_TTL = 2.0  # 秒
+_status_cache: dict[str, tuple[float, tuple[Optional[str], str]]] = {}
+
+
+def _cached_load_task_status(task_id: str, *, row=None):
+    """带 TTL 的状态文件读取；status 文件几乎不变，2s 内命中缓存避免重复 stat/open。"""
+    now = time.monotonic()
+    cached = _status_cache.get(task_id)
+    if cached and now - cached[0] < _STATUS_CACHE_TTL:
+        return cached[1]
+    status, message = _read_task_status_file(task_id, row=row)
+    _status_cache[task_id] = (now, (status, message))
+    return status, message
+
+
+def invalidate_task_status_cache(task_id: str) -> None:
+    """状态写入后调用，强制下次读取重新读盘。"""
+    _status_cache.pop(task_id, None)
+
+
+def _read_task_status_file(task_id: str, *, row=None):
+    """真实读盘逻辑；从 note.py 的 _load_task_status 中抽取，避免循环依赖。"""
+    from app.utils.output_paths import task_status_path
+    status_path = task_status_path(task_id)
+    if not status_path.exists():
+        return None, ''
+    try:
+        with status_path.open('r', encoding='utf-8') as f:
+            status_content = json.load(f)
+        status = status_content.get('status')
+        message = _resolve_failed_status_message(status, status_content.get('message', ''), row=row)
+        return status, message
+    except Exception:
+        return None, ''
+
+
+def _resolve_failed_status_message(status: Optional[str], message: Optional[str], *, row=None) -> str:
+    """等价于 note.py 的 _resolve_failed_message；抽到共享层避免 dao↔router 循环导入。"""
+    from app.enmus.task_status_enums import TaskStatus
+    text = str(message or '').strip()
+    if status != TaskStatus.FAILED.value:
+        return text
+    if text:
+        return text
+    platform = getattr(row, 'platform', None) if row else None
+    source_url = getattr(row, 'source_url', None) if row else None
+    video_id = getattr(row, 'video_id', None) if row else None
+    return _fallback_failed_message(platform=platform, source_url=source_url, video_id=video_id)
+
+
+def _fallback_failed_message(*, platform: Optional[str], source_url: Optional[str], video_id: Optional[str]) -> str:
+    if platform == 'douyin':
+        from app.utils.url_parser import extract_video_id
+        target = video_id or extract_video_id(source_url or '', 'douyin') or '该视频'
+        return (
+            f'抖音视频 {target} 可能已删除、不可访问，或详情接口未返回有效视频信息。'
+            '请检查链接是否仍可打开，或稍后重试。'
+        )
+    return '任务失败，未写入详细原因'
 
 
 def _serialize_request_payload(request_payload: Optional[dict]) -> Optional[str]:
@@ -173,6 +239,22 @@ def list_all_tasks():
         return _attach_request_payload_list(tasks)
     except Exception as e:
         logger.error(f'Failed to list all tasks: {e}')
+        return []
+    finally:
+        db.close()
+
+
+def list_all_task_ids() -> list[str]:
+    """轻量查询：只取 task_id 列，避免对全表反序列化 request_payload。
+
+    用于启动期卡住任务恢复等"只需要 id 集合"的场景（原实现拉全量 ORM + json.loads）。
+    """
+    db = next(get_db())
+    try:
+        rows = db.query(VideoTask.task_id).all()
+        return [row[0] for row in rows if row[0]]
+    except Exception as e:
+        logger.error(f'Failed to list all task ids: {e}')
         return []
     finally:
         db.close()

@@ -8,7 +8,12 @@ import BackendInitDialog from '@/components/BackendInitDialog'
 import StartupBanner from '@/components/SystemDiagnostic/StartupBanner'
 import BackendHealthIndicator from '@/components/BackendHealth/BackendHealthIndicator'
 import Index from '@/pages/Index.tsx'
-import { HomePage } from './pages/HomePage/Home.tsx'
+// 首页包含 MarkdownViewer（react-markdown + syntax-highlighter + markmap 等重型依赖），
+// lazy 加载让它从首屏初始 chunk 中拆出去，缩短 TTI；进入首页时才加载。
+const HomePage = lazy(async () => {
+  const mod = await import('./pages/HomePage/Home.tsx')
+  return { default: mod.HomePage }
+})
 
 // 非首屏页面使用 React.lazy 按需加载
 const Onboarding = lazy(() => import('@/pages/Onboarding'))

@@ -18,7 +18,7 @@ from app.downloaders.bilibili_downloader import BilibiliDownloader
 from app.downloaders.douyin_downloader import DouyinDownloader
 from app.downloaders.local_downloader import LocalDownloader
 from app.downloaders.youtube_downloader import YoutubeDownloader
-from app.db.video_task_dao import delete_task_by_video, insert_video_task
+from app.db.video_task_dao import delete_task_by_video, insert_video_task, invalidate_task_status_cache
 from app.enmus.exception import NoteErrorEnum, ProviderErrorEnum
 from app.enmus.task_status_enums import TaskStatus
 from app.enmus.note_enums import DownloadQuality
@@ -429,6 +429,9 @@ class NoteGenerator:
 
             # Atomic rename operation
             temp_file.replace(status_file)
+
+            # 状态已变更，失效 dao 层的 TTL 缓存，确保下一次轮询读到新值
+            invalidate_task_status_cache(task_id)
 
             logger.info(f"状态文件写入成功: {status_file}")
         except Exception as e:
