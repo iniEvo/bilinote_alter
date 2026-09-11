@@ -121,12 +121,16 @@ export interface BatchTaskGroup {
   controlState?: BatchControlState | null
   taskIds: string[]
   filter?: 'all' | 'success' | 'failed'
+  /** 仅手动新建的空项目为 true；用于在 buildBatchGroups 时与"已移出的幽灵项目"区分 */
+  isManuallyCreated?: boolean
 }
 
 interface TaskStore {
   tasks: Task[]
   batchGroups: BatchTaskGroup[]
   currentTaskId: string | null
+  loadingTaskId: string | null
+  _loadedContentIds: Set<string>
   keepFormDraft: boolean
   focusedBatchId: string | null
   historyHasMore: boolean
@@ -371,8 +375,13 @@ const buildBatchGroups = (tasks: Task[], previousGroups: BatchTaskGroup[] = []):
     group.paused = paused
     group.canceled = canceled
   }
-  // 保留上一轮存在的、没有任何任务引用的项目组（如手动新建的空项目），避免重建时丢失
+  // 只保留上一轮「手动新建」的、没有任何任务引用的空项目组（isManuallyCreated）。
+  // 不能无条件保留所有空组：被「移出项目视图」(removeBatchGroup/detach) 的批次在后端
+  // 已经没有任务，若不区分，detach 后它会被以空组形式重新加回 batchGroups，导致
+  // 角标数量虚高、幽灵项目永不消失（backend /batch_status 对不存在批次返回成功+空列表）。
   for (const prev of previousGroups) {
+    if (!prev.isManuallyCreated)
+      continue
     if (!groups.has(prev.id)) {
       groups.set(prev.id, {
         ...prev,
@@ -434,6 +443,8 @@ export const useTaskStore = create<TaskStore>()(
       tasks: [],
       batchGroups: [],
       currentTaskId: null,
+      loadingTaskId: null,
+      _loadedContentIds: new Set<string>(),
       keepFormDraft: false,
       focusedBatchId: null,
       historyHasMore: true,
@@ -521,6 +532,7 @@ export const useTaskStore = create<TaskStore>()(
               controlState: 'COMPLETED',
               taskIds: [],
               filter: 'all',
+              isManuallyCreated: true,
             },
             ...state.batchGroups.filter(group => group.id !== batchId),
           ],
@@ -964,7 +976,7 @@ export const useTaskStore = create<TaskStore>()(
         toast.success(`已重试 ${response.count} 个失败任务`)
       },
 
-      clearTasks: () => set({ tasks: [], batchGroups: [], batchItems: {}, currentTaskId: null, keepFormDraft: false, focusedBatchId: null, historyHasMore: true }),
+      clearTasks: () => set({ tasks: [], batchGroups: [], batchItems: {}, currentTaskId: null, loadingTaskId: null, _loadedContentIds: new Set(), keepFormDraft: false, focusedBatchId: null, historyHasMore: true }),
 
       setHasHydrated: hydrated => set({ hasHydrated: hydrated }),
 
@@ -1032,10 +1044,13 @@ export const useTaskStore = create<TaskStore>()(
           })
 
           // Silently fetch tasks for batches not in the initial page
+          // 用 light=true：项目列表只需要状态/标题做卡片展示，全量 markdown/transcript
+          // 会让 224 条任务的 batch 返回 12MB+、耗时 20s 卡死页面。
+          // 点击具体任务时 setCurrentTask 会再单独拉全量详情。
           const unloaded = get()._unloadedBatchIds || []
           if (unloaded.length > 0) {
             const batchResults = await Promise.all(
-              unloaded.map(bid => getHistory({ limit: 500, offset: 0, batch_id: bid }).catch(() => []))
+              unloaded.map(bid => getHistory({ limit: 500, offset: 0, batch_id: bid, light: true }).catch(() => []))
             )
             set(state => {
               const merged = [...state.tasks]
@@ -1058,9 +1073,10 @@ export const useTaskStore = create<TaskStore>()(
           }
 
           // 补拉未归入项目的全部单条笔记（batch_id=__none__），
-          // 避免它们被项目内的大量任务挤出最近 N 条窗口导致列表显示不全
+          // 避免它们被项目内的大量任务挤出最近 N 条窗口导致列表显示不全。
+          // light=true：列表只要标题/状态；点击卡片时 setCurrentTask 会拉全量正文。
           try {
-            const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__' }).catch(() => [])
+            const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__', light: true }).catch(() => [])
             if (Array.isArray(singles) && singles.length > 0) {
               set(state => {
                 const merged = [...state.tasks]
@@ -1128,32 +1144,42 @@ export const useTaskStore = create<TaskStore>()(
             }
           })
 
-          for (const group of get().batchGroups) {
-            try {
-              const batch = await getBatchStatus(group.id, { light: true })
-              get().reconcileBatchStatus(
-                group.id,
-                batch.items as HistoryItem[],
-                {
-                  id: group.id,
-                  name: batch.batch_name || group.name,
-                  createdAt: group.createdAt,
-                  platform: group.platform,
-                  total: batch.summary.total,
-                  success: batch.summary.success,
-                  failed: batch.summary.failed,
-                  pending: batch.summary.pending,
-                  paused: batch.summary.paused,
-                  canceled: batch.summary.canceled,
-                  controlState: batch.control_state,
-                  taskIds: group.taskIds,
-                },
-                batch.control_state,
-                batch.batch_name,
-              )
-            } catch (error) {
-              console.error('刷新批量状态失败:', error)
-            }
+          // 并行拉取各项目状态（串行会累加延迟：大项目 1.4s × 4 ≈ 5s 卡住轮询）
+          const groups = get().batchGroups
+          const batchResults = await Promise.all(
+            groups.map(async group => {
+              try {
+                const batch = await getBatchStatus(group.id, { light: true })
+                return { group, batch }
+              } catch (error) {
+                console.error('刷新批量状态失败:', error)
+                return null
+              }
+            })
+          )
+          for (const r of batchResults) {
+            if (!r) continue
+            const { group, batch } = r
+            get().reconcileBatchStatus(
+              group.id,
+              batch.items as HistoryItem[],
+              {
+                id: group.id,
+                name: batch.batch_name || group.name,
+                createdAt: group.createdAt,
+                platform: group.platform,
+                total: batch.summary.total,
+                success: batch.summary.success,
+                failed: batch.summary.failed,
+                pending: batch.summary.pending,
+                paused: batch.summary.paused,
+                canceled: batch.summary.canceled,
+                controlState: batch.control_state,
+                taskIds: group.taskIds,
+              },
+              batch.control_state,
+              batch.batch_name,
+            )
           }
         } catch (error) {
           console.error('刷新历史列表失败:', error)
@@ -1163,7 +1189,7 @@ export const useTaskStore = create<TaskStore>()(
       loadMoreHistory: async () => {
         try {
           const offset = get().tasks.length
-          const history = await getHistory({ limit: HISTORY_PAGE_SIZE, offset })
+          const history = await getHistory({ limit: HISTORY_PAGE_SIZE, offset, light: true })
           if (!Array.isArray(history) || history.length === 0) {
             set({ historyHasMore: false })
             return
@@ -1189,21 +1215,36 @@ export const useTaskStore = create<TaskStore>()(
 
       setCurrentTask: taskId => {
         set({ currentTaskId: taskId, keepFormDraft: false })
-        // 点击卡片时若内存中该任务没有完整正文（light 轮询只带回 result=null），
-        // 主动补拉全量详情，避免预览区空白。
         if (!taskId) return
         const task = get().tasks.find(t => t.id === taskId)
         const hasContent = task?.markdown
           && (typeof task.markdown === 'string'
             ? task.markdown.length > 0
             : Array.isArray(task.markdown) && task.markdown.length > 0)
-        if (hasContent) return
+        if (hasContent) {
+          // 内容已在内存，立即展示，无需重新拉取
+          set({ loadingTaskId: null })
+          return
+        }
+        // light 轮询只带回标题/状态，正文需要单独拉取。
+        // 立即置 loadingTaskId 让预览区给出加载反馈，而不是空白占位。
+        const loadedIds = get()._loadedContentIds
+        if (loadedIds.has(taskId)) {
+          set({ loadingTaskId: null })
+          return
+        }
+        set({ loadingTaskId: taskId })
         void (async () => {
           try {
             const item = await getHistoryTask(taskId, { suppressToast: true })
-            if (item) get().upsertHistoryTask(item)
+            if (item) {
+              loadedIds.add(taskId)
+              get().upsertHistoryTask(item)
+            }
           } catch {
-            // 静默：下次轮询/点击兜底
+            // 拉取失败：清除 loading，让预览区回到空占位（下次点击会重试）
+          } finally {
+            set({ loadingTaskId: null })
           }
         })()
       },
@@ -1262,8 +1303,8 @@ export const useTaskStore = create<TaskStore>()(
     }),
     {
       name: 'task-storage',
-      partialize: state => ({
-        ...state,
+      partialize: ({ loadingTaskId, _loadedContentIds, ...rest }) => ({
+        ...rest,
         hasHydrated: false,
       }),
       storage: taskStoreStorage,

@@ -37,8 +37,9 @@ interface VersionNote {
 }
 
 interface MarkdownViewerProps {
-  content: string | VersionNote[]
+  content?: string | VersionNote[]
   status: 'idle' | 'loading' | 'success' | 'failed'
+  loadingTaskId?: string | null
 }
 
 const steps = [
@@ -315,10 +316,9 @@ function createMarkdownComponents(baseURL: string) {
   }
 }
 
-const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
+const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status, loadingTaskId }) => {
   const [copied, setCopied] = useState(false)
   const [currentVerId, setCurrentVerId] = useState<string>('')
-  const [selectedContent, setSelectedContent] = useState<string>('')
   const [modelName, setModelName] = useState<string>('')
   const [style, setStyle] = useState<string>('')
   const [createTime, setCreateTime] = useState<string>('')
@@ -354,36 +354,47 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
   // 缓存 ReactMarkdown components，仅在 baseURL 变化时重建
   const markdownComponents = useMemo(() => createMarkdownComponents(baseURL), [baseURL])
 
-  // 多版本内容处理
+  // 当前展示的 markdown 内容：从 currentTask 同步派生，而不是依赖 effect 时序。
+  // 之前用 useEffect 同步 selectedContent，内容异步到达（刷新后 light 任务点击拉详情）时，
+  // 会出现 loading 结束但内容尚未写入 state 的空窗——loading 消失、内容也没出来。
+  // useMemo 会在 currentTask.markdown 变化时同步重算，彻底消除该竞态。
+  const markdownArr = isMultiVersion && Array.isArray(currentTask?.markdown)
+    ? currentTask.markdown
+    : null
+  const currentVer = markdownArr
+    ? markdownArr.find(v => v.ver_id === currentVerId)
+    : undefined
+  const selectedContent = useMemo<string>(() => {
+    if (!currentTask) return ''
+    if (markdownArr) {
+      return currentVer?.content || ''
+    }
+    return typeof currentTask.markdown === 'string' ? currentTask.markdown : ''
+  }, [currentTask, markdownArr, currentVer])
+
+  // 仅在任务切换/状态变化时同步一次元信息（标题、模型、样式、创建时间）与版本号
   useEffect(() => {
     if (!currentTask) return
-
-    if (!isMultiVersion) {
-      setCurrentVerId('') // 清空旧版本 ID
-      setModelName(currentTask.formData.model_name)
-      setStyle(currentTask.formData.style)
-      setCreateTime(currentTask.createdAt)
-      setSelectedContent(currentTask?.markdown)
-    } else {
-      const latestVersion = [...currentTask.markdown].sort(
+    setModelName(currentTask.formData.model_name)
+    setStyle(currentTask.formData.style)
+    setCreateTime(currentTask.createdAt)
+    if (markdownArr) {
+      const latestVersion = [...markdownArr].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )[0]
-
-      if (latestVersion) {
+      if (latestVersion && latestVersion.ver_id !== currentVerId) {
         setCurrentVerId(latestVersion.ver_id)
       }
+    } else {
+      setCurrentVerId('') // 清空旧版本 ID
     }
-  }, [currentTask?.id, taskStatus])
+  }, [currentTask?.id, taskStatus, markdownArr])
+  // 多版本下切换版本号时同步对应版本的元信息
   useEffect(() => {
-    if (!currentTask || !isMultiVersion) return
-
-    const currentVer = currentTask.markdown.find(v => v.ver_id === currentVerId)
-    if (currentVer) {
-      setModelName(currentVer.model_name)
-      setStyle(currentVer.style)
-      setCreateTime(currentVer.created_at || '')
-      setSelectedContent(currentVer.content)
-    }
+    if (!currentTask || !markdownArr || !currentVer) return
+    setModelName(currentVer.model_name)
+    setStyle(currentVer.style)
+    setCreateTime(currentVer.created_at || '')
   }, [currentVerId, currentTask?.id])
   const handleCopy = async () => {
     try {
@@ -442,6 +453,20 @@ const MarkdownViewer: FC<MarkdownViewerProps> = memo(({ status }) => {
         <div className="text-center">
           <p className="text-lg font-bold text-slate-800">正在生成笔记，请稍候…</p>
           <p className="mt-2 text-xs text-slate-500">这可能需要几秒钟时间，取决于视频长度</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 点击历史卡片时，light 轮询只带了标题/状态，正文需单独从后端拉取。
+  // 拉取完成前给出明确的加载反馈，避免预览区出现"输入视频链接…"的空占位误导向。
+  if (loadingTaskId && currentTask && loadingTaskId === currentTask.id && !selectedContent) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center space-y-4 text-neutral-500">
+        <Loading className="h-8 w-8" />
+        <div className="text-center">
+          <p className="text-lg font-bold text-slate-800">{currentTask.audioMeta.title || '正在加载笔记…'}</p>
+          <p className="mt-2 text-xs text-slate-500">正在加载笔记内容，请稍候…</p>
         </div>
       </div>
     )

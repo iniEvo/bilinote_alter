@@ -1,6 +1,30 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useTaskStore, type HistoryItem, type TaskFormData } from '@/store/taskStore'
+
+vi.mock('@/services/note.ts', () => ({
+  batchCancel: vi.fn().mockResolvedValue({}),
+  batchClearFailed: vi.fn().mockResolvedValue({ count: 0, cleared: [] }),
+  batchPause: vi.fn().mockResolvedValue({}),
+  batchResume: vi.fn().mockResolvedValue({ resumed: [], count: 0 }),
+  batchRetryFailed: vi.fn().mockResolvedValue({ count: 0, retried: [], skipped: [] }),
+  delete_task: vi.fn().mockResolvedValue({}),
+  detach_batch_tasks: vi.fn().mockResolvedValue({ batch_id: 'b-detach', count: 2 }),
+  generateNote: vi.fn().mockResolvedValue({}),
+  get_task_status: vi.fn().mockResolvedValue({}),
+  getBatchStatus: vi.fn().mockResolvedValue({
+    batch_id: 'b',
+    batch_name: null,
+    control_state: null,
+    summary: { total: 0, success: 0, failed: 0, pending: 0, paused: 0, canceled: 0 },
+    items: [],
+  }),
+  getHistory: vi.fn().mockResolvedValue([]),
+  getHistoryTask: vi.fn().mockResolvedValue(null),
+  renameBatch: vi.fn().mockResolvedValue({}),
+  moveTaskToBatch: vi.fn().mockResolvedValue({}),
+  getAllBatches: vi.fn().mockResolvedValue([]),
+}))
 
 const createFormData = (videoUrl: string): TaskFormData => ({
   video_url: videoUrl,
@@ -192,5 +216,31 @@ describe('taskStore batch reconciliation', () => {
     const group = useTaskStore.getState().batchGroups.find(entry => entry.id === 'batch-1')
     expect(group?.controlState).toBe('COMPLETED')
     expect(group?.pending).toBe(0)
+  })
+
+  it('detached batch does not leave a ghost group', async () => {
+    // Seed store with a batch that has two tasks
+    useTaskStore.getState().upsertHistoryTask({ task_id: 't1', platform: 'bilibili', batch_id: 'b-detach', batch_name: 'Detach Me' })
+    useTaskStore.getState().upsertHistoryTask({ task_id: 't2', platform: 'bilibili', batch_id: 'b-detach', batch_name: 'Detach Me' })
+    expect(useTaskStore.getState().batchGroups.find(g => g.id === 'b-detach')).toBeDefined()
+
+    // Simulate user clicking "移出项目视图"
+    await useTaskStore.getState().removeBatchGroup('b-detach')
+
+    // The group must be fully removed — not just emptied
+    expect(useTaskStore.getState().batchGroups.find(g => g.id === 'b-detach')).toBeUndefined()
+  })
+
+  it('manually created empty project is preserved after buildBatchGroups', () => {
+    const id = useTaskStore.getState().createEmptyProject('空项目')
+    const group = useTaskStore.getState().batchGroups.find(g => g.id === id)
+    expect(group).toBeDefined()
+    expect(group?.total).toBe(0)
+    expect(group?.taskIds).toEqual([])
+    expect(group?.isManuallyCreated).toBe(true)
+
+    // After another buildBatchGroups pass (e.g. from refreshHistoryList), it should still exist
+    useTaskStore.getState().upsertHistoryTask({ task_id: 'unrelated', platform: 'bilibili' })
+    expect(useTaskStore.getState().batchGroups.find(g => g.id === id)).toBeDefined()
   })
 })

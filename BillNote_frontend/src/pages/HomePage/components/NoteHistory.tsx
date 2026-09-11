@@ -51,7 +51,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
     let active = true
     void (async () => {
       try {
-        const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__' })
+        const singles = await getHistory({ limit: 500, offset: 0, batch_id: '__none__', light: true })
         if (!active || !Array.isArray(singles) || singles.length === 0) return
         const existingIds = new Set(useTaskStore.getState().tasks.map(t => t.id))
         const missing = singles.filter(item => !existingIds.has(item.task_id))

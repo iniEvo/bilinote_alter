@@ -8,6 +8,7 @@ type ViewStatus = 'idle' | 'loading' | 'success' | 'failed'
 export const HomePage: FC = () => {
   const tasks = useTaskStore(state => state.tasks)
   const currentTaskId = useTaskStore(state => state.currentTaskId)
+  const loadingTaskId = useTaskStore(state => state.loadingTaskId)
   const hydrateHistory = useTaskStore(state => state.hydrateHistory)
   const hasHydrated = useTaskStore(state => state.hasHydrated)
 
@@ -45,7 +46,7 @@ export const HomePage: FC = () => {
   return (
     <HomeLayout
       NoteForm={<NoteForm />}
-      Preview={<MarkdownViewer status={status} />}
+      Preview={<MarkdownViewer status={status} loadingTaskId={loadingTaskId} />}
       History={<History />}
     />
   )
