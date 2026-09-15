@@ -690,9 +690,23 @@ def _enqueue_note_task(
             task_id = data.task_id
             logger.info(f'重试模式，复用已有 task_id={task_id}')
         else:
-            task_id = str(uuid.uuid4())
+            # ── 同视频去重 ──
+            # 复用该视频最近一条任务记录的 task_id，避免同视频刷出多条卡片。
+            # 走到这里的 SUCCESS 任务必然带 force_regenerate（409 弹窗确认后
+            # 才会进入本分支，_check_duplicate_response 会拦截未确认的重复），
+            # 因此复用是安全的：确认「重新生成」后在同一张卡片上重跑。
+            # 失败/无结果任务则静默复用（等效自动重试），同样不新增卡片。
+            existing = get_latest_task_record(video_id or data.video_url, data.platform)
+            if existing and existing.task_id:
+                task_id = existing.task_id
+                logger.info(
+                    '同视频去重：复用已有 task_id=%s (platform=%s, video_id=%s)',
+                    task_id, data.platform, video_id,
+                )
+            else:
+                task_id = str(uuid.uuid4())
 
-        existing_task = get_task_record(task_id) if data.task_id else None
+        existing_task = get_task_record(task_id) if task_id else None
         if not existing_task:
             persisted = insert_video_task(
                 video_id=video_id or data.video_url,

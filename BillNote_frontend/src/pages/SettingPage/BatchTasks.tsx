@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, Loader2, CheckCircle2, XCircle, AlertTriangle, Info,
   Pause, Play, RefreshCw, Ban, Trash, Pencil, Check, X,
-  Layers3, ChevronLeft, ChevronRight,
+  Layers3,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -167,13 +167,16 @@ const BatchTasks = () => {
   const [isDeletingTask, setIsDeletingTask] = useState(false)
   const [busyBatchAction, setBusyBatchAction] = useState<string | null>(null)
   const [groupPage, setGroupPage] = useState(1)
+  const [groupPageSize, setGroupPageSize] = useState(8)
   const [taskPage, setTaskPage] = useState(1)
+  const [taskPageSize, setTaskPageSize] = useState(HISTORY_PAGE_SIZE)
   // 右侧视频链接列表状态筛选 tab
   const [statusFilter, setStatusFilter] = useState<string>('all')
   // 对话框链接对比结果列表分页
   const [reviewNewPage, setReviewNewPage] = useState(1)
   const [reviewDupPage, setReviewDupPage] = useState(1)
   const [reviewInvalidPage, setReviewInvalidPage] = useState(1)
+  const [reviewPageSize, setReviewPageSize] = useState(8)
 
   /* ── derived ── */
   const taskMap = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks])
@@ -204,10 +207,9 @@ const BatchTasks = () => {
   const invalid = useMemo(() => results.filter(r => !r.valid), [results])
 
   /* pagination */
-  const BATCH_GROUP_PAGE_SIZE = 8
-  const totalGroupPages = Math.max(1, Math.ceil(batchGroups.length / BATCH_GROUP_PAGE_SIZE))
+  const totalGroupPages = Math.max(1, Math.ceil(batchGroups.length / groupPageSize))
   const currentGroupPage = Math.min(groupPage, totalGroupPages)
-  const paginatedGroups = batchGroups.slice((currentGroupPage - 1) * BATCH_GROUP_PAGE_SIZE, currentGroupPage * BATCH_GROUP_PAGE_SIZE)
+  const paginatedGroups = batchGroups.slice((currentGroupPage - 1) * groupPageSize, currentGroupPage * groupPageSize)
 
   /* 右侧列表状态筛选 */
   const filteredItems = useMemo(() => {
@@ -232,21 +234,20 @@ const BatchTasks = () => {
     return counts
   }, [rightItems])
 
-  const totalTaskPages = Math.max(1, Math.ceil(filteredItems.length / HISTORY_PAGE_SIZE))
+  const totalTaskPages = Math.max(1, Math.ceil(filteredItems.length / taskPageSize))
   const currentTaskPage = Math.min(taskPage, totalTaskPages)
-  const paginatedItems = filteredItems.slice((currentTaskPage - 1) * HISTORY_PAGE_SIZE, currentTaskPage * HISTORY_PAGE_SIZE)
+  const paginatedItems = filteredItems.slice((currentTaskPage - 1) * taskPageSize, currentTaskPage * taskPageSize)
 
   /* 对话框链接对比结果分页 */
-  const REVIEW_PAGE_SIZE = 8
-  const totalNewPages = Math.max(1, Math.ceil(validNew.length / REVIEW_PAGE_SIZE))
-  const totalDupPages = Math.max(1, Math.ceil(duplicates.length / REVIEW_PAGE_SIZE))
-  const totalInvalidPages = Math.max(1, Math.ceil(invalid.length / REVIEW_PAGE_SIZE))
+  const totalNewPages = Math.max(1, Math.ceil(validNew.length / reviewPageSize))
+  const totalDupPages = Math.max(1, Math.ceil(duplicates.length / reviewPageSize))
+  const totalInvalidPages = Math.max(1, Math.ceil(invalid.length / reviewPageSize))
   const currentNewPage = Math.min(reviewNewPage, totalNewPages)
   const currentDupPage = Math.min(reviewDupPage, totalDupPages)
   const currentInvalidPage = Math.min(reviewInvalidPage, totalInvalidPages)
-  const paginatedNew = validNew.slice((currentNewPage - 1) * REVIEW_PAGE_SIZE, currentNewPage * REVIEW_PAGE_SIZE)
-  const paginatedDup = duplicates.slice((currentDupPage - 1) * REVIEW_PAGE_SIZE, currentDupPage * REVIEW_PAGE_SIZE)
-  const paginatedInvalid = invalid.slice((currentInvalidPage - 1) * REVIEW_PAGE_SIZE, currentInvalidPage * REVIEW_PAGE_SIZE)
+  const paginatedNew = validNew.slice((currentNewPage - 1) * reviewPageSize, currentNewPage * reviewPageSize)
+  const paginatedDup = duplicates.slice((currentDupPage - 1) * reviewPageSize, currentDupPage * reviewPageSize)
+  const paginatedInvalid = invalid.slice((currentInvalidPage - 1) * reviewPageSize, currentInvalidPage * reviewPageSize)
 
   useEffect(() => { setTaskPage(1) }, [selectedBatchIdView, statusFilter])
 
@@ -695,7 +696,20 @@ const BatchTasks = () => {
                         ))}
                       </div>
                       <div className="mt-2 flex justify-end border-t border-emerald-200/60 pt-2">
-                        <Pagination page={currentNewPage} totalPages={totalNewPages} onChange={setReviewNewPage} />
+                        <Pagination
+                          page={currentNewPage}
+                          totalPages={totalNewPages}
+                          total={validNew.length}
+                          onChange={setReviewNewPage}
+                          pageSize={reviewPageSize}
+                          pageSizeOptions={[8, 20, 50]}
+                          onPageSizeChange={newSize => {
+                            setReviewPageSize(newSize)
+                            setReviewNewPage(1)
+                            setReviewDupPage(1)
+                            setReviewInvalidPage(1)
+                          }}
+                        />
                       </div>
                     </div>
                   )}
@@ -727,7 +741,20 @@ const BatchTasks = () => {
                         })}
                       </div>
                       <div className="mt-2 flex justify-end border-t border-amber-200/60 pt-2">
-                        <Pagination page={currentDupPage} totalPages={totalDupPages} onChange={setReviewDupPage} />
+                        <Pagination
+                          page={currentDupPage}
+                          totalPages={totalDupPages}
+                          total={duplicates.length}
+                          onChange={setReviewDupPage}
+                          pageSize={reviewPageSize}
+                          pageSizeOptions={[8, 20, 50]}
+                          onPageSizeChange={newSize => {
+                            setReviewPageSize(newSize)
+                            setReviewNewPage(1)
+                            setReviewDupPage(1)
+                            setReviewInvalidPage(1)
+                          }}
+                        />
                       </div>
                     </div>
                   )}
@@ -743,7 +770,20 @@ const BatchTasks = () => {
                         ))}
                       </div>
                       <div className="mt-2 flex justify-end border-t border-red-200/60 pt-2">
-                        <Pagination page={currentInvalidPage} totalPages={totalInvalidPages} onChange={setReviewInvalidPage} />
+                        <Pagination
+                          page={currentInvalidPage}
+                          totalPages={totalInvalidPages}
+                          total={invalid.length}
+                          onChange={setReviewInvalidPage}
+                          pageSize={reviewPageSize}
+                          pageSizeOptions={[8, 20, 50]}
+                          onPageSizeChange={newSize => {
+                            setReviewPageSize(newSize)
+                            setReviewNewPage(1)
+                            setReviewDupPage(1)
+                            setReviewInvalidPage(1)
+                          }}
+                        />
                       </div>
                     </div>
                   )}
@@ -773,10 +813,18 @@ const BatchTasks = () => {
           <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2.5">
             <Layers3 className="h-4 w-4 text-slate-500" />
             <span className="text-sm font-semibold text-slate-900">项目（{batchGroups.length}）</span>
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <span className="text-[11px] text-slate-500">{currentGroupPage}/{totalGroupPages}</span>
-              <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px]" disabled={currentGroupPage <= 1} onClick={() => setGroupPage(p => p - 1)}><ChevronLeft className="h-3 w-3" /></Button>
-              <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px]" disabled={currentGroupPage >= totalGroupPages} onClick={() => setGroupPage(p => p + 1)}><ChevronRight className="h-3 w-3" /></Button>
+            <div className="ml-auto shrink-0">
+              <Pagination
+                page={currentGroupPage}
+                totalPages={totalGroupPages}
+                onChange={setGroupPage}
+                pageSize={groupPageSize}
+                pageSizeOptions={[8, 20, 50]}
+                onPageSizeChange={newSize => {
+                  setGroupPageSize(newSize)
+                  setGroupPage(1)
+                }}
+              />
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-2">
@@ -1015,6 +1063,12 @@ const BatchTasks = () => {
                   totalPages={totalTaskPages}
                   total={filteredItems.length}
                   onChange={setTaskPage}
+                  pageSize={taskPageSize}
+                  pageSizeOptions={[20, 50, 100]}
+                  onPageSizeChange={newSize => {
+                    setTaskPageSize(newSize)
+                    setTaskPage(1)
+                  }}
                 />
               </div>
             </>

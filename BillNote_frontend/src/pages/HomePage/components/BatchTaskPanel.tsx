@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Layers3,
   Loader2,
@@ -14,6 +13,7 @@ import {
 import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/button.tsx'
+import Pagination from '@/components/ui/pagination.tsx'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
   const [nameInput, setNameInput] = useState('')
   const [groupPage, setGroupPage] = useState(1)
   const [taskPages, setTaskPages] = useState<Record<string, number>>({})
+  const [taskPageSizes, setTaskPageSizes] = useState<Record<string, number>>({})
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [isCreatingProject, setIsCreatingProject] = useState(false)
@@ -375,9 +376,10 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
             return true
           })
           const groupLabel = group.name
-          const totalTaskPages = Math.max(1, Math.ceil(visibleItems.length / HISTORY_PAGE_SIZE))
+          const taskPageSize = taskPageSizes[group.id] || HISTORY_PAGE_SIZE
+          const totalTaskPages = Math.max(1, Math.ceil(visibleItems.length / taskPageSize))
           const currentTaskPage = Math.min(taskPages[group.id] || 1, totalTaskPages)
-          const paginatedItems = visibleItems.slice((currentTaskPage - 1) * HISTORY_PAGE_SIZE, currentTaskPage * HISTORY_PAGE_SIZE)
+          const paginatedItems = visibleItems.slice((currentTaskPage - 1) * taskPageSize, currentTaskPage * taskPageSize)
 
           return (
             <div
@@ -560,33 +562,18 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
 
                     {visibleItems.length > 0 && (
                       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
-                        <span>
-                          第 {currentTaskPage} / {totalTaskPages} 页
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-lg px-2.5"
-                            disabled={currentTaskPage <= 1}
-                            onClick={() => setTaskPages(state => ({ ...state, [group.id]: Math.max(1, currentTaskPage - 1) }))}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                            上一页
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-lg px-2.5"
-                            disabled={currentTaskPage >= totalTaskPages}
-                            onClick={() => setTaskPages(state => ({ ...state, [group.id]: Math.min(totalTaskPages, currentTaskPage + 1) }))}
-                          >
-                            下一页
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Pagination
+                          page={currentTaskPage}
+                          totalPages={totalTaskPages}
+                          total={visibleItems.length}
+                          onChange={p => setTaskPages(state => ({ ...state, [group.id]: p }))}
+                          pageSize={taskPageSize}
+                          pageSizeOptions={[20, 50, 100]}
+                          onPageSizeChange={newSize => {
+                            setTaskPageSizes(state => ({ ...state, [group.id]: newSize }))
+                            setTaskPages(state => ({ ...state, [group.id]: 1 }))
+                          }}
+                        />
                       </div>
                     )}
                   </div>
@@ -600,33 +587,12 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
 
         {visibleGroups.length > 0 && (
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
-            <span>
-              第 {currentGroupPage} / {totalGroupPages} 页
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-lg px-2.5"
-                disabled={currentGroupPage <= 1}
-                onClick={() => setGroupPage(page => Math.max(1, page - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                上一页
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-lg px-2.5"
-                disabled={currentGroupPage >= totalGroupPages}
-                onClick={() => setGroupPage(page => Math.min(totalGroupPages, page + 1))}
-              >
-                下一页
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Pagination
+              page={currentGroupPage}
+              totalPages={totalGroupPages}
+              total={visibleGroups.length}
+              onChange={setGroupPage}
+            />
           </div>
         )}
       </div>

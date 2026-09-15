@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils.ts'
 
@@ -7,25 +8,37 @@ interface PaginationProps {
   total?: number
   onChange: (page: number) => void
   pageSize?: number
+  pageSizeOptions?: number[]
+  onPageSizeChange?: (size: number) => void
   className?: string
   size?: 'sm' | 'md'
 }
 
 /**
- * 简洁的页码导航组件。
+ * 页码导航组件。
  * 页数较多时自动折叠中间页码（省略号），并保证首尾页可直达。
- * 自适应：允许换行收缩，缩放 / 窄容器下不会溢出被裁。
+ * 支持每页条数选择、跳转到指定页、总条数显示。
  */
 const Pagination = ({
   page,
   totalPages,
   total,
   onChange,
+  pageSize,
+  pageSizeOptions,
+  onPageSizeChange,
   className,
   size = 'sm',
 }: PaginationProps) => {
   const safeTotal = Math.max(1, totalPages)
   const current = Math.min(Math.max(1, page), safeTotal)
+
+  const [gotoValue, setGotoValue] = useState('')
+  const gotoRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setGotoValue('')
+  }, [current])
 
   // 生成页码序列：最多 5 个数字 + 省略号（首、尾、当前及相邻）
   const buildPages = (): Array<number | '...'> => {
@@ -48,14 +61,42 @@ const Pagination = ({
     ? 'h-6 min-w-6 px-1.5 text-[11px]'
     : 'h-8 min-w-8 px-2 text-sm'
 
+  const handleGoto = () => {
+    const n = parseInt(gotoValue, 10)
+    if (!isNaN(n) && n >= 1 && n <= safeTotal && n !== current) {
+      onChange(n)
+    }
+    setGotoValue('')
+  }
+
   // 始终渲染分页控件（单页时按钮呈禁用态），避免「看不见分页」的困惑
   return (
-    <div className={cn('flex min-w-0 flex-wrap items-center gap-1', className)}>
+    <div className={cn('flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1', className)}>
       {typeof total === 'number' && (
-        <span className={cn('mr-1 whitespace-nowrap text-slate-400', size === 'sm' ? 'text-[11px]' : 'text-xs')}>
+        <span className={cn('whitespace-nowrap text-slate-400', size === 'sm' ? 'text-[11px]' : 'text-xs')}>
           共 {total} 条
         </span>
       )}
+
+      {/* 每页条数选择 */}
+      {pageSize !== undefined && onPageSizeChange && pageSizeOptions && pageSizeOptions.length > 0 && (
+        <select
+          value={pageSize}
+          onChange={e => {
+            const v = parseInt(e.target.value, 10)
+            if (!isNaN(v) && v > 0) onPageSizeChange(v)
+          }}
+          className={cn(
+            'rounded-lg border border-slate-200 bg-white px-1.5 text-slate-600 transition-colors hover:border-blue-200 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100',
+            size === 'sm' ? 'h-6 text-[11px]' : 'h-8 text-xs',
+          )}
+        >
+          {pageSizeOptions.map(n => (
+            <option key={n} value={n}>{n} 条/页</option>
+          ))}
+        </select>
+      )}
+
       <button
         type="button"
         aria-label="上一页"
@@ -105,6 +146,35 @@ const Pagination = ({
       >
         <ChevronRight className="h-3.5 w-3.5" />
       </button>
+
+      {/* 跳转到指定页 */}
+      {safeTotal > 5 && (
+        <div className="flex items-center gap-1">
+          <span className={cn('whitespace-nowrap text-slate-400', size === 'sm' ? 'text-[11px]' : 'text-xs')}>
+            跳至
+          </span>
+          <input
+            ref={gotoRef}
+            type="number"
+            min={1}
+            max={safeTotal}
+            value={gotoValue}
+            onChange={e => setGotoValue(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleGoto()
+            }}
+            onBlur={handleGoto}
+            className={cn(
+              'rounded-lg border border-slate-200 bg-white text-center text-slate-600 outline-none transition-[border-color,box-shadow] hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100',
+              size === 'sm' ? 'h-6 w-12 text-[11px]' : 'h-8 w-14 text-xs',
+            )}
+            placeholder={`${current}`}
+          />
+          <span className={cn('whitespace-nowrap text-slate-400', size === 'sm' ? 'text-[11px]' : 'text-xs')}>
+            页
+          </span>
+        </div>
+      )}
     </div>
   )
 }

@@ -268,6 +268,34 @@ class DouyinDownloader(Downloader):
         except Exception as e:
             raise ValueError("Douyin msToken API{0}".format(e))
 
+    def _fetch_video_info_mobile(self, aweme_id: str) -> dict:
+        """抖音移动端接口兜底：detail API 被 Argus uifid 风控拦截时使用。
+
+        2026 年抖音给 www.douyin.com 的 aweme/detail 加了 uifid 签名验证，
+        纯 Python 无法计算。api*-normal-c-hl.amemv.com（手机端接口）不校验
+        uifid，返回结构与 web detail 一致，可作为稳定降级路径。
+        """
+        mobile_headers = {
+            **self.headers_config,
+            'User-Agent': (
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 '
+                'Mobile/15E148 Safari/604.1'
+            ),
+        }
+        host = 'api5-normal-c-hl.amemv.com'
+        url = f'https://{host}/aweme/v1/aweme/detail/?aweme_id={aweme_id}'
+        response = requests.get(url, headers=mobile_headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        detail = data.get('aweme_detail')
+        if not detail:
+            raise ValueError(
+                f'抖音移动端接口未返回视频信息: aweme_id={aweme_id}'
+            )
+        logger.info('Douyin mobile API detail fetched: aweme_id=%s', aweme_id)
+        return data
+
     def fetch_video_info(self, video_url: str) -> json:
         try:
             self._refresh_cookie()
@@ -296,16 +324,25 @@ class DouyinDownloader(Downloader):
             except requests.exceptions.HTTPError as exc:
                 # 抖音对高频请求间歇性 403（风控），Cookie 有效也会随机触发。
                 # 等待后重试（最多 3 次），把偶发 403 自动消化，避免任务直接失败。
+                retried_ok = False
                 for attempt in range(2, 4):
                     logger.warning('Douyin detail 403, retry %d/3 after 3s...', attempt)
                     time.sleep(3)
                     response = requests.get(full_url, headers=kwargs)
                     try:
                         response.raise_for_status()
+                        retried_ok = True
                         break
                     except requests.exceptions.HTTPError:
                         if attempt == 3:
-                            raise
+                            # detail API 持续 403：为 Argus uifid 风控拦截，
+                            # 回退到不校验 uifid 的移动端接口。
+                            logger.warning(
+                                'Douyin detail API 403 after retries, '
+                                'fallback to mobile API (aweme_id=%s)',
+                                aweme_id or '<empty>',
+                            )
+                            return self._fetch_video_info_mobile(aweme_id)
 
             try:
                 data = response.json()
@@ -383,6 +420,83 @@ class DouyinDownloader(Downloader):
                 video_path=None,
             )
 
+        # ────────────────────────────────────────────────────────────────────
+        # Phase 1: 尝试 yt-dlp 提取（走网页路径，不走 detail API）
+        #
+        # 抖音 2026 年新增 Argus uifid 签名验证，detail API 已无法绕过，
+        # 导致 fetch_video_info() 403。yt-dlp 走网页/独立 API 仍有概率成功，
+        # 成功时直接复用其 info dict 获取元数据 + media URL，无需调用 detail API。
+        # ────────────────────────────────────────────────────────────────────
+        normalized_video_url = self._normalize_video_url(video_url)
+        ytdlp_info = None
+        try:
+            ytdlp_info = self._extract_info_with_ytdlp(
+                normalized_video_url, download=False, output_dir=output_dir,
+            )
+        except Exception as exc:
+            logger.info('yt-dlp 抖音提取失败，将尝试 detail API: %s', exc)
+
+        if ytdlp_info:
+            ytdlp_media_url = ytdlp_info.get('url')
+            ytdlp_video_id = ytdlp_info.get('id') or cached_id or ''
+            ytdlp_title = (
+                ytdlp_info.get('title')
+                or ytdlp_info.get('description')
+                or ytdlp_video_id
+            )
+            ytdlp_duration = ytdlp_info.get('duration', 0)
+            ytdlp_cover = ytdlp_info.get('thumbnail')
+            ytdlp_tags = ytdlp_info.get('tags') or ''
+
+            if skip_download:
+                return AudioDownloadResult(
+                    file_path=os.path.join(output_dir, f'{ytdlp_video_id}.mp3'),
+                    title=ytdlp_title,
+                    duration=ytdlp_duration,
+                    cover_url=ytdlp_cover,
+                    platform='douyin',
+                    video_id=ytdlp_video_id,
+                    raw_info={'tags': ytdlp_tags},
+                    video_path=None,
+                )
+
+            if ytdlp_media_url:
+                media_url = ytdlp_media_url
+                media_ext = ytdlp_info.get('ext') or 'mp4'
+                media_path = os.path.join(output_dir, f'{ytdlp_video_id}.{media_ext}')
+                response = requests.get(media_url, headers=self.headers_config, stream=True)
+                response.raise_for_status()
+                with open(media_path, 'wb') as f:
+                    for chunk in response.iter_content(1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+                audio_path = media_path
+                if media_ext != 'mp3':
+                    audio_path = os.path.join(output_dir, f'{ytdlp_video_id}.mp3')
+                    proc = subprocess.run(
+                        [ffmpeg_executable(), '-y', '-i', media_path, '-vn', '-acodec', 'libmp3lame', audio_path],
+                        capture_output=True, text=True, timeout=600,
+                    )
+                    if proc.returncode != 0:
+                        detail_err = (proc.stderr or '')[-1500:]
+                        logger.error('ffmpeg 转音频失败: %s', detail_err)
+                        raise ValueError(f'Failed to load audio: {detail_err[-500:]}')
+                return AudioDownloadResult(
+                    file_path=audio_path,
+                    title=ytdlp_title,
+                    duration=ytdlp_duration,
+                    cover_url=ytdlp_cover,
+                    platform='douyin',
+                    video_id=ytdlp_video_id,
+                    raw_info={'tags': ytdlp_tags},
+                    video_path=None,
+                )
+            else:
+                logger.warning('yt-dlp 提取成功但未返回 URL，回退 detail API')
+
+        # ────────────────────────────────────────────────────────────────────
+        # Phase 2: yt-dlp 失败，回退 detail API（原有逻辑）
+        # ────────────────────────────────────────────────────────────────────
         video_data = self.fetch_video_info(video_url)
         detail = video_data['aweme_detail']
         tags = [tag.get('tag_name') for tag in detail.get('video_tag', []) if tag.get('tag_name')]
@@ -393,82 +507,63 @@ class DouyinDownloader(Downloader):
             cover_url = detail['video']['cover_original_scale']['url_list'][0]
         elif detail.get('video', {}).get('cover'):
             cover_url = detail['video']['cover']['url_list'][0]
+        detail_aweme_id = detail['aweme_id']
 
         if skip_download:
             return AudioDownloadResult(
-                file_path=os.path.join(output_dir, f"{detail['aweme_id']}.mp3"),
+                file_path=os.path.join(output_dir, f"{detail_aweme_id}.mp3"),
                 title=title,
                 duration=duration,
                 cover_url=cover_url,
                 platform='douyin',
-                video_id=detail['aweme_id'],
+                video_id=detail_aweme_id,
                 raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
                 video_path=None,
             )
 
-        normalized_video_url = self._normalize_video_url(video_url)
-        info = None
         media_url = None
         media_ext = 'mp4'
-        try:
-            info = self._extract_info_with_ytdlp(normalized_video_url, download=False, output_dir=output_dir)
-            media_url = info.get('url')
-            media_ext = info.get('ext') or 'mp4'
-        except Exception as exc:
-            # yt-dlp 抖音 extractor 常因缺少 a_bogus 签名 / 风控返回 403 并误报
-            # "Fresh cookies"，此时 Cookie 其实有效（fetch_video_info 已成功）。
-            # 不能抛错——必须回退到下方详情接口的 download_addr 直连下载。
-            logger.warning('Douyin audio yt-dlp failed (%s), fallback to download_addr', exc)
-            media_url = None
-
+        for field in ('download_addr', 'play_addr'):
+            addr = (detail.get('video', {}).get(field) or {}).get('url_list') or []
+            if addr:
+                media_url = addr[0]
+                break
         if not media_url:
-            # fallback：依次尝试 download_addr → play_addr → bit_rate 的 play_addr
-            # （部分视频 download_addr 为空，但 play_addr 可用）
-            for field in ('download_addr', 'play_addr'):
-                addr = (detail.get('video', {}).get(field) or {}).get('url_list') or []
+            for br in (detail.get('video', {}).get('bit_rate') or []):
+                addr = (br.get('play_addr') or {}).get('url_list') or []
                 if addr:
                     media_url = addr[0]
                     break
-            if not media_url:
-                for br in (detail.get('video', {}).get('bit_rate') or []):
-                    addr = (br.get('play_addr') or {}).get('url_list') or []
-                    if addr:
-                        media_url = addr[0]
-                        break
-            if not media_url:
-                raise ValueError('请求失败: 未获取到抖音媒体下载地址')
+        if not media_url:
+            raise ValueError('请求失败: 未获取到抖音媒体下载地址')
 
-        media_path = os.path.join(output_dir, f"{detail['aweme_id']}.{media_ext}")
+        media_path = os.path.join(output_dir, f"{detail_aweme_id}.{media_ext}")
         response = requests.get(media_url, headers=self.headers_config, stream=True)
         response.raise_for_status()
         with open(media_path, 'wb') as f:
             for chunk in response.iter_content(1024 * 1024):
                 if chunk:
                     f.write(chunk)
-
         audio_path = media_path
         if media_ext != 'mp3':
-            audio_path = os.path.join(output_dir, f"{detail['aweme_id']}.mp3")
+            audio_path = os.path.join(output_dir, f"{detail_aweme_id}.mp3")
             proc = subprocess.run(
                 [ffmpeg_executable(), '-y', '-i', media_path, '-vn', '-acodec', 'libmp3lame', audio_path],
-                capture_output=True,
-                text=True,
-                timeout=600,
+                capture_output=True, text=True, timeout=600,
             )
             if proc.returncode != 0:
-                # 记录 ffmpeg 真实错误（之前 stderr 被丢弃，报错原因不可见）
                 detail_err = (proc.stderr or '')[-1500:]
                 logger.error('ffmpeg 转音频失败: %s', detail_err)
                 raise ValueError(f'Failed to load audio: {detail_err[-500:]}')
 
         return AudioDownloadResult(
             file_path=audio_path,
-            title=(info or {}).get('title') or title,
-            duration=(info or {}).get('duration', duration),
-            cover_url=(info or {}).get('thumbnail') or cover_url,
+            title=title,
+            duration=duration,
+            cover_url=cover_url,
             platform='douyin',
-            video_id=(info or {}).get('id') or detail['aweme_id'],
-            raw_info={'tags': (info or {}).get('tags') or detail.get('caption', '') + ''.join(tags)},
+            video_id=detail_aweme_id,
+            raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
             video_path=None,
         )
 

@@ -1,9 +1,10 @@
 import { useTaskStore } from '@/store/taskStore'
 import { useProviderStore } from '@/store/providerStore'
 import { getHistory } from '@/services/note'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import ModelRerouteDialog from '@/components/ModelRerouteDialog'
 import { Button } from '@/components/ui/button.tsx'
+import Pagination from '@/components/ui/pagination.tsx'
 import Fuse from 'fuse.js'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -17,6 +18,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog.tsx'
 import { HISTORY_PAGE_SIZE } from '@/store/taskStore'
+
+const NOTE_PAGE_SIZE_OPTIONS = [20, 50, 100]
 
 interface NoteHistoryProps {
   onSelect: (taskId: string) => void
@@ -89,6 +92,7 @@ const NoteHistory: FC<NoteHistoryProps> = ({
   const [rawSearch, setRawSearch] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(HISTORY_PAGE_SIZE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState<string | null>(null)
   const [isDeletingTask, setIsDeletingTask] = useState(false)
@@ -117,9 +121,14 @@ const NoteHistory: FC<NoteHistoryProps> = ({
     setPage(1)
   }, [search])
 
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / HISTORY_PAGE_SIZE))
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    setPage(1)
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize))
   const currentPage = Math.min(page, totalPages)
-  const paginatedTasks = filteredTasks.slice((currentPage - 1) * HISTORY_PAGE_SIZE, currentPage * HISTORY_PAGE_SIZE)
+  const paginatedTasks = filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const pendingDeleteTask = pendingDeleteTaskId
     ? tasks.find(task => task.id === pendingDeleteTaskId) || null
     : null
@@ -204,32 +213,23 @@ const NoteHistory: FC<NoteHistoryProps> = ({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/90 px-3 py-2.5 text-xs text-slate-500 shadow-sm mr-[18px]">
-        <span className="tabular-nums">
-          第 {currentPage} / {totalPages} 页
-        </span>
-        <div className="flex items-center gap-2">
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          total={filteredTasks.length}
+          onChange={p => setPage(p)}
+          pageSize={pageSize}
+          pageSizeOptions={NOTE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={handlePageSizeChange}
+        />
+        {historyHasMore && (
           <Button
             type="button"
             size="sm"
             variant="outline"
             className="h-8 rounded-xl px-2.5"
-            disabled={currentPage <= 1}
-            onClick={() => setPage(value => Math.max(1, value - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            上一页
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-xl px-2.5"
-            disabled={isLoadingMore || (currentPage >= totalPages && !historyHasMore) || totalPages <= 1}
+            disabled={isLoadingMore}
             onClick={async () => {
-              if (currentPage < totalPages) {
-                setPage(value => Math.min(totalPages, value + 1))
-                return
-              }
               if (!historyHasMore || isLoadingMore)
                 return
               setIsLoadingMore(true)
@@ -241,10 +241,10 @@ const NoteHistory: FC<NoteHistoryProps> = ({
               }
             }}
           >
-            下一页
+            加载更多
             <ChevronRight className="h-4 w-4" />
           </Button>
-        </div>
+        )}
       </div>
 
       <ModelRerouteDialog

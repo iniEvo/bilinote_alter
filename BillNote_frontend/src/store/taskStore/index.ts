@@ -745,7 +745,7 @@ export const useTaskStore = create<TaskStore>()(
             grid_size: newFormData.grid_size || [],
           }, { suppressToast: true })
         } catch (error: unknown) {
-          const retryError = error as { data?: { reason?: string, downloading?: boolean } }
+          const retryError = error as { code?: number; data?: { reason?: string, downloading?: boolean; duplicate_task?: { task_id?: string; source_url?: string } } }
           if (retryError?.data?.reason === 'transcriber_model_not_ready') {
             toast.error(
               retryError?.data?.downloading
@@ -754,8 +754,34 @@ export const useTaskStore = create<TaskStore>()(
             )
             return false
           }
-          console.error('重试任务失败：', error)
-          return false
+          // 同视频已有更新的 SUCCESS 记录（不同 task_id），用户点「重试」已明确表达
+          // 再生成意图，自动带 force_regenerate=true 重试，避免 409 弹窗阻断流程。
+          if (retryError?.code === 409 && retryError?.data?.reason === 'duplicate_video_task') {
+            try {
+              await generateNote({
+                video_url: newFormData.video_url,
+                platform: newFormData.platform,
+                quality: newFormData.quality,
+                model_name: newFormData.model_name,
+                provider_id: newFormData.provider_id,
+                task_id: id,
+                format: newFormData.format || [],
+                style: newFormData.style || '',
+                extras: newFormData.extras,
+                screenshot: newFormData.screenshot,
+                link: newFormData.link,
+                video_interval: newFormData.video_interval,
+                grid_size: newFormData.grid_size || [],
+                force_regenerate: true,
+              }, { suppressToast: true })
+            } catch (innerError) {
+              console.error('重试任务(自动force_regenerate)失败：', innerError)
+              return false
+            }
+          } else {
+            console.error('重试任务失败：', error)
+            return false
+          }
         }
 
         set(state => {
