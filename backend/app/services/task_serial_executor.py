@@ -6,7 +6,12 @@ from typing import Any, Callable
 
 
 class ConcurrentTaskExecutor:
-    """使用线程池并发执行任务，替代原来的串行锁。"""
+    """使用线程池并发执行任务（已弃用，保留仅为兼容旧测试/引用）。
+
+    新架构见 app.services.task_pipeline.TaskPipeline：三阶段队列
+    （下载/转写/总结）各自独立并发，取代本类"单线程池跑整条同步链"的模型。
+    主流程已不再引用本类；run_note_task 改为向 pipeline 入队。
+    """
 
     def __init__(self, max_workers: int | None = None):
         self._max_workers = max_workers or int(os.getenv("TASK_MAX_WORKERS", "3"))

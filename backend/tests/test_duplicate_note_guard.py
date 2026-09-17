@@ -318,9 +318,10 @@ class TestDuplicateNoteGuard(unittest.TestCase):
         self.assertEqual(duplicate['request_payload']['video_url'], 'https://www.douyin.com/video/7660398439615712546')
 
     @patch('app.routers.note.NoteGenerator')
+    @patch('app.routers.note.get_latest_task_record', return_value=None)
     @patch('app.routers.note.run_note_task')
     @patch('app.routers.note.insert_video_task', return_value=True)
-    def test_enqueue_note_task_normalizes_douyin_modal_source_url(self, mock_insert, _mock_run_task, mock_note_generator):
+    def test_enqueue_note_task_normalizes_douyin_modal_source_url(self, mock_insert, _mock_run_task, _mock_latest, mock_note_generator):
         payload = note_router.VideoRequest(
             video_url='https://www.douyin.com/user/self?from_tab_name=main&modal_id=7660398439615712546&showTab=favorite_collection',
             platform='douyin',
@@ -343,8 +344,9 @@ class TestDuplicateNoteGuard(unittest.TestCase):
         self.assertEqual(inserted_payload['video_url'], 'https://www.douyin.com/video/7660398439615712546')
         self.assertEqual(note_router._inflight_video_tasks[('douyin', '7660398439615712546')], body['data']['task_id'])
 
+    @patch('app.routers.note.get_latest_task_record', return_value=None)
     @patch('app.routers.note.insert_video_task', return_value=False)
-    def test_enqueue_note_task_returns_error_when_task_persistence_fails(self, mock_insert):
+    def test_enqueue_note_task_returns_error_when_task_persistence_fails(self, mock_insert, _mock_latest):
         payload = note_router.VideoRequest(
             video_url='https://www.douyin.com/video/7660398439615712546',
             platform='douyin',

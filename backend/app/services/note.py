@@ -187,23 +187,90 @@ class NoteGenerator:
         if grid_size is None:
             grid_size = []
 
+        # 主流程拆为三阶段，各阶段用 {task_id}_audio.json / _transcript.json
+        # 缓存文件衔接，与异步管道（task_pipeline）的阶段调度共用同一套逻辑。
         try:
-            logger.info(f"开始生成笔记 (task_id={task_id})")
+            dl = self.phase_download(
+                task_id=task_id,
+                video_url=video_url,
+                platform=platform,
+                quality=quality,
+                output_path=output_path,
+                screenshot=screenshot,
+                video_understanding=video_understanding,
+                video_interval=video_interval,
+                grid_size=grid_size,
+            )
+            if dl is None:
+                return None
+
+            tx = self.phase_transcribe(
+                task_id=dl['task_id'],
+                audio_meta=dl['audio_meta'],
+                video_url=dl['video_url'],
+                platform=dl['platform'],
+                video_path=dl['video_path'],
+                video_img_urls=dl['video_img_urls'],
+                transcript=dl['transcript'],
+            )
+            if tx is None:
+                return None
+
+            return self.phase_summarize(
+                task_id=tx['task_id'],
+                audio_meta=tx['audio_meta'],
+                transcript=tx['transcript'],
+                video_url=tx['video_url'],
+                platform=tx['platform'],
+                model_name=model_name,
+                provider_id=provider_id,
+                link=link,
+                screenshot=screenshot,
+                _format=_format or [],
+                style=style,
+                extras=extras,
+                video_path=tx['video_path'],
+                video_img_urls=tx['video_img_urls'],
+            )
+        except Exception as exc:
+            logger.error(f"生成笔记流程异常 (task_id={task_id})：{exc}", exc_info=True)
+            if _is_retryable_error(exc):
+                self._update_status(task_id, TaskStatus.RETRYABLE, message=f"连接中断，任务可重试：{exc}")
+            else:
+                self._update_status(task_id, TaskStatus.FAILED, message=str(exc))
+            return None
+
+    # ---------------- 异步管道阶段方法 ----------------
+
+    def phase_download(
+        self,
+        *,
+        task_id: Optional[str],
+        video_url: Union[str, HttpUrl],
+        platform: str,
+        quality: DownloadQuality = DownloadQuality.medium,
+        output_path: Optional[str] = None,
+        screenshot: bool = False,
+        video_understanding: bool = False,
+        video_interval: int = 0,
+        grid_size: Optional[List[int]] = None,
+    ) -> Optional[dict]:
+        """管道阶段 1：解析链接 + 获取字幕 + 下载音频/视频。
+
+        写 {task_id}_audio.json 产物；返回下一阶段参数 dict，失败返回 None。
+        """
+        if grid_size is None:
+            grid_size = []
+        try:
+            logger.info(f"开始下载阶段 (task_id={task_id})")
             self._update_status(task_id, TaskStatus.PARSING)
 
-            # 获取下载器与 GPT 实例
-
             downloader = self._get_downloader(platform)
-            gpt = self._get_gpt(model_name, provider_id)
-
-            # 缓存文件路径
-            audio_cache_file = audio_json_path(task_id)
             transcript_cache_file = transcript_json_path(task_id)
-            markdown_cache_file = note_markdown_path(task_id)
-            # 1. 获取字幕/转写：优先缓存 → 平台字幕 → 音频转写
-            transcript = None
+            audio_cache_file = audio_json_path(task_id)
 
-            # 尝试读取缓存
+            # 字幕优先：缓存 → 平台字幕
+            transcript = None
             if transcript_cache_file.exists():
                 logger.info(f"检测到转写缓存 ({transcript_cache_file})，尝试读取")
                 try:
@@ -218,7 +285,6 @@ class NoteGenerator:
                 except Exception as e:
                     logger.warning(f"加载转写缓存失败: {e}")
 
-            # 缓存没有，尝试获取平台字幕
             if transcript is None:
                 logger.info("尝试获取平台字幕（优先于音频下载）...")
                 try:
@@ -236,7 +302,6 @@ class NoteGenerator:
                     logger.warning(f"获取平台字幕失败: {e}，将下载音频后转写")
                     transcript = None
 
-            # 2. 下载音频/视频
             # 有字幕时只提取元信息，不下载音视频文件（除非需要截图/视频理解）
             has_transcript = transcript is not None
             need_full_download = not has_transcript or screenshot or video_understanding
@@ -255,8 +320,43 @@ class NoteGenerator:
                 skip_download=not need_full_download,
             )
 
-            # 3. 如果前面没拿到字幕，走转写流程
+            return {
+                'task_id': task_id,
+                'video_url': str(video_url),
+                'platform': platform,
+                'audio_meta': audio_meta,
+                'video_path': str(self.video_path) if self.video_path else None,
+                'video_img_urls': list(self.video_img_urls or []),
+                'transcript': transcript,
+            }
+        except Exception as exc:
+            logger.error(f"下载阶段异常 (task_id={task_id})：{exc}", exc_info=True)
+            self._handle_exception(task_id, exc)
+            return None
+
+    def phase_transcribe(
+        self,
+        *,
+        task_id: Optional[str],
+        audio_meta: AudioDownloadResult,
+        video_url: Union[str, HttpUrl],
+        platform: str,
+        video_path: Optional[str] = None,
+        video_img_urls: Optional[List[str]] = None,
+        transcript: Optional[TranscriptResult] = None,
+    ) -> Optional[dict]:
+        """管道阶段 2：若无平台字幕则转写音频。
+
+        写 {task_id}_transcript.json 产物；返回下一阶段参数 dict，失败返回 None。
+        """
+        try:
+            logger.info(f"开始转写阶段 (task_id={task_id})")
+            self.video_path = Path(video_path) if video_path else None
+            self.video_img_urls = list(video_img_urls or [])
+            transcript_cache_file = transcript_json_path(task_id)
+
             if transcript is None:
+                downloader = self._get_downloader(platform)
                 transcript = self._get_transcript(
                     downloader=downloader,
                     video_url=video_url,
@@ -271,7 +371,49 @@ class NoteGenerator:
             if not transcript.segments and not (transcript.full_text or '').strip():
                 raise ValueError('转写结果为空，无法生成笔记')
 
-            # 3. GPT 总结
+            return {
+                'task_id': task_id,
+                'audio_meta': audio_meta,
+                'transcript': transcript,
+                'video_url': str(video_url),
+                'platform': platform,
+                'video_path': str(self.video_path) if self.video_path else None,
+                'video_img_urls': list(self.video_img_urls or []),
+            }
+        except Exception as exc:
+            logger.error(f"转写阶段异常 (task_id={task_id})：{exc}", exc_info=True)
+            self._handle_exception(task_id, exc)
+            return None
+
+    def phase_summarize(
+        self,
+        *,
+        task_id: Optional[str],
+        audio_meta: AudioDownloadResult,
+        transcript: TranscriptResult,
+        video_url: Union[str, HttpUrl],
+        platform: str,
+        model_name: Optional[str] = None,
+        provider_id: Optional[str] = None,
+        link: bool = False,
+        screenshot: bool = False,
+        _format: Optional[List[str]] = None,
+        style: Optional[str] = None,
+        extras: Optional[str] = None,
+        video_path: Optional[str] = None,
+        video_img_urls: Optional[List[str]] = None,
+    ) -> Optional[NoteResult]:
+        """管道阶段 3：GPT 总结 + 后处理 + 落盘 + 存库。失败返回 None。"""
+        if _format is None:
+            _format = []
+        try:
+            logger.info(f"开始总结阶段 (task_id={task_id})")
+            self.video_path = Path(video_path) if video_path else None
+            self.video_img_urls = list(video_img_urls or [])
+
+            gpt = self._get_gpt(model_name, provider_id)
+            markdown_cache_file = note_markdown_path(task_id)
+
             markdown = self._summarize_text(
                 audio_meta=audio_meta,
                 transcript=transcript,
@@ -279,13 +421,13 @@ class NoteGenerator:
                 markdown_cache_file=markdown_cache_file,
                 link=link,
                 screenshot=screenshot,
-                formats=_format or [],
+                formats=_format,
                 style=style,
                 extras=extras,
                 video_img_urls=self.video_img_urls,
             )
 
-            # 4. 截图 & 链接替换
+            # 截图 & 链接替换
             if _format:
                 markdown = self._post_process_markdown(
                     markdown=markdown,
@@ -301,21 +443,16 @@ class NoteGenerator:
             titled_markdown_path = note_markdown_path(task_id, title=audio_meta.title)
             titled_markdown_path.write_text(markdown or '', encoding='utf-8')
 
-            # 5. 保存记录到数据库
+            # 保存记录到数据库
             self._update_status(task_id, TaskStatus.SAVING)
             self._save_metadata(video_id=audio_meta.video_id, platform=platform, task_id=task_id)
 
-            # 6. 完成
             self._update_status(task_id, TaskStatus.SUCCESS)
             logger.info(f"笔记生成成功 (task_id={task_id})")
             return NoteResult(markdown=markdown, transcript=transcript, audio_meta=audio_meta)
-
         except Exception as exc:
-            logger.error(f"生成笔记流程异常 (task_id={task_id})：{exc}", exc_info=True)
-            if _is_retryable_error(exc):
-                self._update_status(task_id, TaskStatus.RETRYABLE, message=f"连接中断，任务可重试：{exc}")
-            else:
-                self._update_status(task_id, TaskStatus.FAILED, message=str(exc))
+            logger.error(f"总结阶段异常 (task_id={task_id})：{exc}", exc_info=True)
+            self._handle_exception(task_id, exc)
             return None
 
     @staticmethod

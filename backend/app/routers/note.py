@@ -35,6 +35,7 @@ from app.enmus.task_status_enums import TaskStatus
 from app.exceptions.note import NoteError
 from app.services.note import NoteGenerator, logger
 from app.services.batch_control_store import BatchControlStore
+from app.services.task_pipeline import task_pipeline
 from app.services.task_serial_executor import task_serial_executor
 from app.utils.output_paths import (
     audio_json_path,
@@ -768,6 +769,88 @@ def _enqueue_note_task(
     return R.success({'task_id': task_id, 'batch_id': batch_id})
 
 
+# ── 通用阶段回调（进程启动时注册一次，任务无关）──────────────────
+
+def _batch_check(task_id: str, ctx: dict) -> bool:
+    """阶段入口批次控制检查。返回 True 表示可继续；False 表示任务已被拦截终止。"""
+    batch_id = ctx.get('batch_id')
+    if not batch_id:
+        return True
+    state = _batch_controls.get(batch_id)
+    if state == 'CANCELED':
+        NoteGenerator()._update_status(task_id, TaskStatus.CANCELED, message='批次任务已取消')
+        return False
+    if state == 'PAUSED':
+        NoteGenerator()._update_status(task_id, TaskStatus.PAUSED, message='批次任务已暂停')
+        return False
+    return True
+
+
+def _pipeline_download(task_id: str, ctx: dict, **params):
+    """通用下载阶段回调：批次检查 → NoteGenerator.phase_download。"""
+    if not _batch_check(task_id, ctx):
+        return None
+    return NoteGenerator().phase_download(
+        task_id=task_id,
+        video_url=ctx['video_url'],
+        platform=ctx['platform'],
+        quality=ctx['quality'],
+        output_path=ctx.get('output_path'),
+        screenshot=ctx.get('screenshot', False),
+        video_understanding=ctx.get('video_understanding', False),
+        video_interval=ctx.get('video_interval', 0),
+        grid_size=ctx.get('grid_size') or [],
+    )
+
+
+def _pipeline_transcribe(task_id: str, ctx: dict, **params):
+    """通用转写阶段回调：批次检查 → NoteGenerator.phase_transcribe。"""
+    if not _batch_check(task_id, ctx):
+        return None
+    return NoteGenerator().phase_transcribe(
+        task_id=task_id,
+        audio_meta=params['audio_meta'],
+        video_url=params['video_url'],
+        platform=params['platform'],
+        video_path=params.get('video_path'),
+        video_img_urls=params.get('video_img_urls'),
+        transcript=params.get('transcript'),
+    )
+
+
+def _pipeline_summarize(task_id: str, ctx: dict, **params):
+    """通用总结阶段回调：批次检查 → NoteGenerator.phase_summarize → save → 向量索引。"""
+    if not _batch_check(task_id, ctx):
+        return None
+    note = NoteGenerator().phase_summarize(
+        task_id=task_id,
+        audio_meta=params['audio_meta'],
+        transcript=params['transcript'],
+        video_url=params['video_url'],
+        platform=params['platform'],
+        model_name=ctx['model_name'],
+        provider_id=ctx['provider_id'],
+        link=ctx.get('link', False),
+        screenshot=ctx.get('screenshot', False),
+        _format=ctx.get('_format') or [],
+        style=ctx.get('style'),
+        extras=ctx.get('extras'),
+        video_path=params.get('video_path'),
+        video_img_urls=params.get('video_img_urls'),
+    )
+    if not note or not note.markdown:
+        logger.warning(f'任务 {task_id} 执行失败，跳过保存')
+        return None
+    save_note_to_file(task_id, note)
+    update_task_title(task_id, getattr(note.audio_meta, 'title', None))
+    try:
+        from app.services.vector_store import VectorStoreManager
+        VectorStoreManager().index_task(task_id)
+    except Exception as e:
+        logger.warning(f'向量索引失败（不影响笔记）: {e}')
+    return note
+
+
 def run_note_task(
     task_id: str,
     video_url: str,
@@ -785,58 +868,48 @@ def run_note_task(
     grid_size=[],
     video_id: Optional[str] = None,
 ):
+    """任务入口：提交到阶段管道异步执行，不再阻塞等待。"""
     logger.info('run_note_task start (task_id=%s, platform=%s, video_url=%s, provider_id=%s)', task_id, platform, video_url, provider_id)
     if not model_name or not provider_id:
-        raise HTTPException(status_code=400, detail='请选择模型和提供者')
-
-    def _execute_note_task():
-        return NoteGenerator().generate(
-            video_url=video_url,
-            platform=platform,
-            quality=quality,
-            task_id=task_id,
-            model_name=model_name,
-            provider_id=provider_id,
-            link=link,
-            _format=_format,
-            style=style,
-            extras=extras,
-            screenshot=screenshot,
-            video_understanding=video_understanding,
-            video_interval=video_interval,
-            grid_size=grid_size,
-        )
+        NoteGenerator()._update_status(task_id, TaskStatus.FAILED, message='请选择模型和提供者')
+        return
 
     row = get_task_record(task_id)
     batch_id = getattr(row, 'batch_id', None)
-    if batch_id and _batch_controls.get(batch_id) == 'CANCELED':
-        NoteGenerator()._update_status(task_id, TaskStatus.CANCELED, message='批次任务已取消')
-        return
-    if batch_id and _batch_controls.get(batch_id) == 'PAUSED':
-        NoteGenerator()._update_status(task_id, TaskStatus.PAUSED, message='批次任务已暂停')
-        return
-
     task_key = (platform, video_id or video_url)
-    try:
-        logger.info(f'任务进入执行队列 (task_id={task_id})')
-        note = task_serial_executor.run(_execute_note_task)
-        logger.info(f'Note generated: {task_id}')
-        if not note or not note.markdown:
-            logger.warning(f'任务 {task_id} 执行失败，跳过保存')
-            return
-        save_note_to_file(task_id, note)
-        update_task_title(task_id, getattr(note.audio_meta, 'title', None))
 
-        try:
-            from app.services.vector_store import VectorStoreManager
-
-            VectorStoreManager().index_task(task_id)
-        except Exception as e:
-            logger.warning(f'向量索引失败（不影响笔记）: {e}')
-    finally:
+    def _finalize(task_id_arg: str):
         with _video_task_lock:
-            if _inflight_video_tasks.get(task_key) == task_id:
+            if _inflight_video_tasks.get(task_key) == task_id_arg:
                 _inflight_video_tasks.pop(task_key, None)
+
+    # 接线终态回调（pipeline 级，一次注册，回调内读 ctx 不依赖 run_note_task 闭包变量）
+    task_pipeline.register_finalize(_finalize)
+
+    # 入队：ctx 携带全部生成参数和批次上下文
+    task_pipeline.enqueue(
+        task_id,
+        {
+            'ctx': {
+                'batch_id': batch_id,
+                'task_key': task_key,
+                'video_url': video_url,
+                'platform': platform,
+                'quality': quality,
+                'model_name': model_name,
+                'provider_id': provider_id,
+                'link': link,
+                'screenshot': screenshot,
+                '_format': _format,
+                'style': style,
+                'extras': extras,
+                'video_understanding': video_understanding,
+                'video_interval': video_interval,
+                'grid_size': grid_size or [],
+            },
+        },
+    )
+    logger.info('任务已提交到管道 (task_id=%s, platform=%s)', task_id, platform)
 
 
 @router.post('/delete_task')

@@ -72,6 +72,22 @@ async def lifespan(app: FastAPI):
 
         logger.info("[startup 5/5] 启动完成，等待请求")
 
+        # 异步任务管道：一次性注册三阶段回调（任务无关），由 run_note_task 入队
+        try:
+            from app.routers.note import (
+                _pipeline_download,
+                _pipeline_transcribe,
+                _pipeline_summarize,
+            )
+            from app.services.task_pipeline import task_pipeline
+
+            task_pipeline.register_phase('download', _pipeline_download)
+            task_pipeline.register_phase('transcribe', _pipeline_transcribe)
+            task_pipeline.register_phase('summarize', _pipeline_summarize)
+            logger.info("[startup 5c/5] 任务管道阶段回调已注册")
+        except Exception as _pe:
+            logger.warning(f"任务管道阶段回调注册失败: {_pe}")
+
         # 自动清理调度线程：配置开启时按周期清理选中的生成物
         try:
             from app.services.auto_cleanup_scheduler import auto_cleanup_scheduler
