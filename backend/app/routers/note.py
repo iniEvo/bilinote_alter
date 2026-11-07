@@ -1494,53 +1494,57 @@ def fix_note_titles(data: FixNoteTitlesRequest):
     failed = []
 
     for row in rows:
-        row_video_id = getattr(row, 'video_id', None)
-        row_source_url = getattr(row, 'source_url', None)
         task_id = row.task_id
+        try:
+            row_video_id = getattr(row, 'video_id', None)
+            row_source_url = getattr(row, 'source_url', None)
 
-        result_content = _load_note_result(task_id)
-        audio_meta = (result_content.get('audio_meta') or {}) if isinstance(result_content, dict) else {}
-        json_title = str(audio_meta.get('title') or '').strip() or None
+            result_content = _load_note_result(task_id)
+            audio_meta = (result_content.get('audio_meta') or {}) if isinstance(result_content, dict) else {}
+            json_title = str(audio_meta.get('title') or '').strip() or None
 
-        db_title = getattr(row, 'title', None)
-        online_error: Optional[str] = None
-        db_needs_fix = _looks_like_placeholder_title(db_title, video_id=row_video_id, source_url=row_source_url)
-        json_needs_fix = _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url)
-        if not db_needs_fix and not json_needs_fix:
-            continue
+            db_title = getattr(row, 'title', None)
+            online_error: Optional[str] = None
+            db_needs_fix = _looks_like_placeholder_title(db_title, video_id=row_video_id, source_url=row_source_url)
+            json_needs_fix = _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url)
+            if not db_needs_fix and not json_needs_fix:
+                continue
 
-        # 候选标题优先级：本地 JSON 真实标题 > DB 真实标题 > 在线补取
-        db_title_clean = str(db_title or '').strip() or None
-        candidate = None
-        if not _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url):
-            candidate = json_title
-        elif not _looks_like_placeholder_title(db_title_clean, video_id=row_video_id, source_url=row_source_url):
-            candidate = db_title_clean
-        if not candidate and data.fetch_online:
-            candidate, online_error = _fetch_video_title_online(getattr(row, 'platform', None), getattr(row, 'source_url', None) or row_source_url)
-
-        if candidate and _looks_like_placeholder_title(candidate, video_id=row_video_id, source_url=row_source_url):
+            # 候选标题优先级：本地 JSON 真实标题 > DB 真实标题 > 在线补取
+            db_title_clean = str(db_title or '').strip() or None
             candidate = None
+            if not _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url):
+                candidate = json_title
+            elif not _looks_like_placeholder_title(db_title_clean, video_id=row_video_id, source_url=row_source_url):
+                candidate = db_title_clean
+            if not candidate and data.fetch_online:
+                candidate, online_error = _fetch_video_title_online(getattr(row, 'platform', None), getattr(row, 'source_url', None) or row_source_url)
 
-        if not candidate:
-            failed.append({'task_id': task_id, 'reason': online_error or '未找到可用标题'})
-            continue
+            if candidate and _looks_like_placeholder_title(candidate, video_id=row_video_id, source_url=row_source_url):
+                candidate = None
 
-        ok = True
-        if db_needs_fix and not update_task_title(task_id, candidate):
-            failed.append({'task_id': task_id, 'reason': 'update_failed'})
-            ok = False
-        if ok and json_needs_fix:
-            _sync_note_json_title(task_id, candidate)
-            _rename_markdown_to_title(task_id, candidate)
+            if not candidate:
+                failed.append({'task_id': task_id, 'reason': online_error or '未找到可用标题'})
+                continue
 
-        if not ok:
-            continue
-        entry = {'task_id': task_id, 'title': candidate}
-        if data.fetch_online and db_needs_fix and json_title is None:
-            fixed_online.append(entry)
-        else:
-            fixed_local.append(entry)
+            ok = True
+            if db_needs_fix and not update_task_title(task_id, candidate):
+                failed.append({'task_id': task_id, 'reason': 'update_failed'})
+                ok = False
+            if ok and json_needs_fix:
+                _sync_note_json_title(task_id, candidate)
+                _rename_markdown_to_title(task_id, candidate)
+
+            if not ok:
+                continue
+            entry = {'task_id': task_id, 'title': candidate}
+            if data.fetch_online and db_needs_fix and json_title is None:
+                fixed_online.append(entry)
+            else:
+                fixed_local.append(entry)
+        except Exception as exc:
+            logger.warning('fix_note_titles task %s 处理失败: %s', task_id, exc)
+            failed.append({'task_id': task_id, 'reason': f'处理异常: {exc}'})
 
     total_fixed = len(fixed_local) + len(fixed_online)
     logger.info('fix_note_titles 完成: 共检查 %s 条, 修复 %s 条 (本地 %s / 在线 %s), 失败 %s 条',
