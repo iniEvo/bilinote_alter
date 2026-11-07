@@ -73,6 +73,39 @@ def _normalize_duplicate_key(video_url: Optional[str], platform: Optional[str]) 
     return candidate
 
 
+def _resolve_batch_name(batch_id: Optional[str], requested_name: Optional[str]) -> Optional[str]:
+    """确定写入任务的 batch_name：同一 batch_id 一律以库内已有名字为准。
+
+    batch_name 冗余存在每一行任务里，没有独立批次表、也没有唯一约束。若允许
+    不同调用方给同一 batch_id 传不同名字，前端按 (batch_id, batch_name) 去重时
+    就会把一个批次渲染成多个项目（历史 bug：早期用时间戳当默认名）。
+    因此已存在的批次沿用库里名字，重命名只走 /rename_batch。
+    """
+    if not batch_id:
+        return requested_name or None
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.models.video_tasks import VideoTask
+        db = SessionLocal()
+        try:
+            row = (
+                db.query(VideoTask.batch_name)
+                .filter(
+                    VideoTask.batch_id == batch_id,
+                    VideoTask.batch_name.isnot(None),
+                    VideoTask.batch_name != '',
+                )
+                .first()
+            )
+            if row and row[0]:
+                return row[0]
+        finally:
+            db.close()
+    except Exception:
+        logger.warning('读取已有批次名失败，回退使用请求中的 batch_name', exc_info=True)
+    return requested_name or None
+
+
 def _detect_url_platform(url: Optional[str]) -> Optional[str]:
     """从链接内容推断真实平台，用于前端平台参数缺失/错选时兜底。"""
     text = str(url or '').strip().lower()
@@ -979,10 +1012,16 @@ def move_task_to_batch_endpoint(data: dict):
     if not task_id:
         return R.error(msg='task_id 不能为空', code=400)
     # 两个都为空 = 把任务移出当前项目（清空归属，卡片回到历史列表）；
-    # 两个都给出 = 移入项目。只给出其中一个会让批次处于无名或有 id 无归属的半状态。
-    if bool(batch_id) != bool(batch_name):
+    # 给出 batch_id = 移入项目。目标批次已存在时沿用库内名字，防止同一 batch_id 出现多个名字。
+    if not batch_id and not batch_name:
+        resolved_name = None
+    elif not batch_id:
         return R.error(msg='batch_id 和 batch_name 必须同时提供或同时为空', code=400)
-    success = move_task_to_batch(task_id, batch_id or None, batch_name or None)
+    else:
+        resolved_name = _resolve_batch_name(batch_id, batch_name or None)
+        if not resolved_name:
+            return R.error(msg='目标项目没有名称，请提供 batch_name', code=400)
+    success = move_task_to_batch(task_id, batch_id or None, resolved_name)
     if not success:
         return R.error(msg='任务不存在', code=404)
     return R.success(msg='已移出项目' if not batch_id else '已移动到项目')
@@ -1028,7 +1067,7 @@ def generate_note(data: VideoRequest, background_tasks: BackgroundTasks):
             data,
             background_tasks,
             batch_id=data.batch_id or None,
-            batch_name=data.batch_name or None,
+            batch_name=_resolve_batch_name(data.batch_id, data.batch_name),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1098,29 +1137,8 @@ def generate_notes_batch(data: BatchVideoRequest, background_tasks: BackgroundTa
             return enabled_error
 
         batch_id = data.batch_id or str(uuid.uuid4())
-        # batch_name 处理优先级：
-        #   1. 前端显式传入的 data.batch_name  >
-        #   2. 同一 batch_id 在 DB 里已有的 batch_name（加入已有 batch 时继承）  >
-        #   3. None（不存时间戳占位符，避免后续同一 batch 多个 name）
-        batch_name = data.batch_name or None
-        if batch_name is None and data.batch_id:
-            # 加入已有 batch：查一次 DB 里这个 batch_id 已经叫什么名字
-            try:
-                from app.db.engine import SessionLocal
-                from app.db.models.models import VideoTask
-                _s = SessionLocal()
-                try:
-                    _r = _s.query(VideoTask.batch_name).filter(
-                        VideoTask.batch_id == batch_id,
-                        VideoTask.batch_name.isnot(None),
-                        VideoTask.batch_name != '',
-                    ).first()
-                    if _r and _r[0]:
-                        batch_name = _r[0]
-                finally:
-                    _s.close()
-            except Exception:
-                pass
+        # 已有批次沿用库内名字（避免同一 batch_id 出现多个名字）；新批次用请求里的名字
+        batch_name = _resolve_batch_name(data.batch_id, data.batch_name)
         items = []
         confirmed_urls = set(data.duplicate_confirm_urls or [])
         confirmed_keys = {key for key in (_normalize_duplicate_key(url, data.platform) for url in confirmed_urls) if key}

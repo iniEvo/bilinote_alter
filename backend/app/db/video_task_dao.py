@@ -399,17 +399,37 @@ def move_task_to_batch(task_id: str, batch_id: Optional[str], batch_name: Option
 
 
 def get_all_batches() -> list:
-    """Get distinct batch_id + batch_name pairs."""
+    """列出批次，每个 batch_id 只返回一个名字。
+
+    batch_name 冗余存在每一行任务里，同一 batch_id 历史上可能残留多个名字
+    （早期用时间戳兜底）。按 batch_id 去重并取出现次数最多的非空名字，
+    避免前端按 (batch_id, batch_name) 去重时把同一批次渲染成多个项目。
+    """
     db = next(get_db())
     try:
-        from sqlalchemy import distinct
+        from sqlalchemy import func
         rows = (
-            db.query(distinct(VideoTask.batch_id), VideoTask.batch_name)
+            db.query(VideoTask.batch_id, VideoTask.batch_name, func.count(VideoTask.task_id))
             .filter(VideoTask.batch_id.isnot(None))
-            .order_by(VideoTask.batch_id.desc())
+            .group_by(VideoTask.batch_id, VideoTask.batch_name)
             .all()
         )
-        return [{'batch_id': r[0], 'batch_name': r[1]} for r in rows]
+        best: dict = {}
+        for batch_id, name, count in rows:
+            if not name:
+                best.setdefault(batch_id, (0, None))
+                continue
+            current = best.get(batch_id)
+            if (
+                current is None
+                or count > current[0]
+                or (count == current[0] and len(name) > len(current[1] or ''))
+            ):
+                best[batch_id] = (count, name)
+        return [
+            {'batch_id': batch_id, 'batch_name': entry[1]}
+            for batch_id, entry in sorted(best.items(), key=lambda kv: kv[0], reverse=True)
+        ]
     except Exception as e:
         logger.error(f'Failed to get all batches: {e}')
         return []
