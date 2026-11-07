@@ -13,7 +13,7 @@ import requests
 import yt_dlp
 from pydantic import BaseModel
 
-from app.downloaders.base import Downloader
+from app.downloaders.base import Downloader, YDL_RETRY_OPTS
 from app.utils.logger import get_logger
 from app.downloaders.douyin_helper.abogus import ABogus
 from app.enmus.note_enums import DownloadQuality
@@ -129,6 +129,20 @@ class DouyinDownloader(Downloader):
         self.ttwid_config = DouyinConfig.TTWID.copy()
         self.ms_token_config = DouyinConfig.MS_TOKEN.copy()
 
+    def _request_proxies(self) -> Optional[dict]:
+        """解析当前生效的代理，供 requests 使用。
+
+        抖音 web 接口有 IP 级风控（403 ArgusSecurityPlugin），被限流后
+        只有换出口 IP 才能恢复。设置页填的代理此前从未传给 requests，
+        导致用户配了代理仍然 403。这里统一解析一次，所有请求点复用。
+        """
+        from app.services.proxy_config_manager import ProxyConfigManager
+
+        url = ProxyConfigManager().get_proxy_url()
+        if not url:
+            return None
+        return {"http": url, "https": url}
+
     def _refresh_cookie(self) -> None:
         """每次请求前从配置文件读取最新 Cookie（配置更新后无需重启后端即生效）。
 
@@ -171,6 +185,7 @@ class DouyinDownloader(Downloader):
     def _extract_info_with_ytdlp(self, video_url: str, download: bool, output_dir: str) -> dict:
         output_template = os.path.join(output_dir, '%(id)s.%(ext)s')
         ydl_opts = {
+            **YDL_RETRY_OPTS,
             'noplaylist': True,
             'quiet': False,
             'outtmpl': output_template,
@@ -285,7 +300,9 @@ class DouyinDownloader(Downloader):
         }
         host = 'api5-normal-c-hl.amemv.com'
         url = f'https://{host}/aweme/v1/aweme/detail/?aweme_id={aweme_id}'
-        response = requests.get(url, headers=mobile_headers, timeout=10)
+        response = requests.get(
+            url, headers=mobile_headers, timeout=10, proxies=self._request_proxies()
+        )
         response.raise_for_status()
         data = response.json()
         detail = data.get('aweme_detail')
@@ -295,6 +312,124 @@ class DouyinDownloader(Downloader):
             )
         logger.info('Douyin mobile API detail fetched: aweme_id=%s', aweme_id)
         return data
+
+    @staticmethod
+    def extract_sec_uid(url: str) -> str:
+        """从用户主页链接 / 分享文本中提取 sec_uid。
+
+        兼容两种形态：
+          - 完整主页链接 https://www.douyin.com/user/MS4wLjABAAAA...
+          - 直接粘贴的裸 sec_uid（MS4wLjABAAAA 开头）
+        """
+        text = str(url or '').strip()
+        if not text:
+            return ''
+        match = re.search(r'/user/([A-Za-z0-9_\-]+)', text)
+        if match:
+            return match.group(1)
+        match = re.search(r'\b(MS4wLjABAAAA[A-Za-z0-9_\-]+)', text)
+        return match.group(1) if match else ''
+
+    def _signed_web_get(self, path: str, params: dict, *, retries: int = 3) -> dict:
+        """带 msToken + a_bogus 签名的 web API GET，遇 403 风控自动重试。
+
+        抖音的 detail / post / profile 接口共用同一套签名与风控策略，
+        统一在这里实现，避免每个接口各写一遍重试逻辑。
+        """
+        self._refresh_cookie()
+        full_params = {**BaseRequestModel().model_dump(), **params}
+        full_params['msToken'] = self.gen_real_msToken()
+
+        a_bogus = quote(ABogus().get_value(full_params), safe='')
+        query_str = urlencode(full_params)
+        url = f'{DOUYIN_DOMAIN}{path}?{query_str}&a_bogus={a_bogus}'
+
+        last_exc = None
+        for attempt in range(1, retries + 1):
+            response = requests.get(
+                url,
+                headers=self.headers_config,
+                timeout=20,
+                proxies=self._request_proxies(),
+            )
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as exc:
+                last_exc = exc
+                if attempt < retries:
+                    logger.warning(
+                        'Douyin %s returned %s, retry %d/%d after 3s...',
+                        path, response.status_code, attempt, retries,
+                    )
+                    time.sleep(3)
+                    continue
+                raise
+            return response.json()
+        raise last_exc
+
+    def fetch_user_profile(self, sec_uid: str) -> dict:
+        """获取指定用户的资料（昵称、签名、粉丝数、作品数等）。"""
+        data = self._signed_web_get(
+            '/aweme/v1/web/user/profile/other/',
+            {'sec_user_id': sec_uid},
+        )
+        return data.get('user') or {}
+
+    def fetch_user_posts(
+        self,
+        sec_uid: str,
+        *,
+        limit: int = 60,
+        page_size: int = 18,
+        page_interval: float = 1.5,
+    ) -> list:
+        """分页拉取指定用户主页的全部作品，返回精简后的作品列表。
+
+        抖音每页最多返回 20 条，翻页需要带上上一页的 max_cursor；
+        `limit` 是安全上限，防止 has_more 异常为真时无限翻页。
+        """
+        posts = []
+        cursor = '0'
+        for page in range(limit):
+            data = self._signed_web_get(
+                '/aweme/v1/web/aweme/post/',
+                {
+                    'sec_user_id': sec_uid,
+                    'max_cursor': str(cursor),
+                    'count': str(page_size),
+                    'locate_query': 'false',
+                    'show_live_replay_strategy': '1',
+                    'need_time_list': '1',
+                    'time_list_query': '0',
+                    'whale_cut_token': '',
+                    'cut_version': '1',
+                    'publish_video_strategy_type': '2',
+                },
+            )
+            aweme_list = data.get('aweme_list') or []
+            if not aweme_list:
+                break
+
+            for item in aweme_list:
+                aweme_id = item.get('aweme_id')
+                if not aweme_id:
+                    continue
+                video = item.get('video') or {}
+                posts.append({
+                    'aweme_id': str(aweme_id),
+                    'desc': (item.get('desc') or '').strip(),
+                    'create_time': item.get('create_time') or 0,
+                    'duration': video.get('duration') or 0,
+                    'is_top': bool(item.get('is_top')),
+                })
+
+            if not data.get('has_more'):
+                break
+            cursor = data.get('max_cursor') or '0'
+            if page < limit - 1:
+                time.sleep(page_interval)
+
+        return posts
 
     def fetch_video_info(self, video_url: str) -> json:
         try:
@@ -318,7 +453,9 @@ class DouyinDownloader(Downloader):
                 len(base_params['msToken']) if base_params.get('msToken') else 0,
             )
 
-            response = requests.get(full_url, headers=kwargs)
+            response = requests.get(
+                full_url, headers=kwargs, proxies=self._request_proxies()
+            )
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as exc:
@@ -328,7 +465,9 @@ class DouyinDownloader(Downloader):
                 for attempt in range(2, 4):
                     logger.warning('Douyin detail 403, retry %d/3 after 3s...', attempt)
                     time.sleep(3)
-                    response = requests.get(full_url, headers=kwargs)
+                    response = requests.get(
+                full_url, headers=kwargs, proxies=self._request_proxies()
+            )
                     try:
                         response.raise_for_status()
                         retried_ok = True
@@ -403,30 +542,19 @@ class DouyinDownloader(Downloader):
         os.makedirs(output_dir, exist_ok=True)
         self._refresh_cookie()
 
-        # A previous interrupted run may already have downloaded the audio.
-        # Reuse it before calling Douyin detail, which can reject old videos.
-        cached_id = self.extract_video_id(video_url)
-        cached_audio = os.path.join(output_dir, f'{cached_id}.mp3') if cached_id else None
-        if cached_audio and os.path.exists(cached_audio) and os.path.getsize(cached_audio) > 0:
-            logger.info('复用抖音音频缓存，跳过详情接口: %s', cached_audio)
-            return AudioDownloadResult(
-                file_path=cached_audio,
-                title=cached_id,
-                duration=0,
-                cover_url=None,
-                platform='douyin',
-                video_id=cached_id,
-                raw_info={'tags': ''},
-                video_path=None,
-            )
-
         # ────────────────────────────────────────────────────────────────────
         # Phase 1: 尝试 yt-dlp 提取（走网页路径，不走 detail API）
         #
         # 抖音 2026 年新增 Argus uifid 签名验证，detail API 已无法绕过，
         # 导致 fetch_video_info() 403。yt-dlp 走网页/独立 API 仍有概率成功，
         # 成功时直接复用其 info dict 获取元数据 + media URL，无需调用 detail API。
+        #
+        # 音频缓存路径也放在 yt-dlp 之后：即使 raw .mp3 已存在，也尝试从
+        # yt-dlp 拿真实标题，避免 title=cached_id 被固化到 audio_json。
         # ────────────────────────────────────────────────────────────────────
+        cached_id = self.extract_video_id(video_url)
+        cached_audio = os.path.join(output_dir, f'{cached_id}.mp3') if cached_id else None
+
         normalized_video_url = self._normalize_video_url(video_url)
         ytdlp_info = None
         try:
@@ -448,6 +576,20 @@ class DouyinDownloader(Downloader):
             ytdlp_cover = ytdlp_info.get('thumbnail')
             ytdlp_tags = ytdlp_info.get('tags') or ''
 
+            # 音频文件已缓存：直接复用，避免重复下载，同时用 yt-dlp 真实标题
+            if cached_audio and os.path.exists(cached_audio) and os.path.getsize(cached_audio) > 0:
+                logger.info('复用抖音音频缓存（yt-dlp 标题），跳过下载: %s', cached_audio)
+                return AudioDownloadResult(
+                    file_path=cached_audio,
+                    title=ytdlp_title,
+                    duration=ytdlp_duration,
+                    cover_url=ytdlp_cover,
+                    platform='douyin',
+                    video_id=ytdlp_video_id,
+                    raw_info={'tags': ytdlp_tags},
+                    video_path=None,
+                )
+
             if skip_download:
                 return AudioDownloadResult(
                     file_path=os.path.join(output_dir, f'{ytdlp_video_id}.mp3'),
@@ -464,7 +606,12 @@ class DouyinDownloader(Downloader):
                 media_url = ytdlp_media_url
                 media_ext = ytdlp_info.get('ext') or 'mp4'
                 media_path = os.path.join(output_dir, f'{ytdlp_video_id}.{media_ext}')
-                response = requests.get(media_url, headers=self.headers_config, stream=True)
+                response = requests.get(
+                    media_url,
+                    headers=self.headers_config,
+                    stream=True,
+                    proxies=self._request_proxies(),
+                )
                 response.raise_for_status()
                 with open(media_path, 'wb') as f:
                     for chunk in response.iter_content(1024 * 1024):
@@ -509,6 +656,20 @@ class DouyinDownloader(Downloader):
             cover_url = detail['video']['cover']['url_list'][0]
         detail_aweme_id = detail['aweme_id']
 
+        # 音频文件已缓存：直接复用，避免重复下载，同时用 detail API 真实标题
+        if cached_audio and os.path.exists(cached_audio) and os.path.getsize(cached_audio) > 0:
+            logger.info('复用抖音音频缓存（detail 标题），跳过下载: %s', cached_audio)
+            return AudioDownloadResult(
+                file_path=cached_audio,
+                title=title,
+                duration=duration,
+                cover_url=cover_url,
+                platform='douyin',
+                video_id=detail_aweme_id,
+                raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
+                video_path=None,
+            )
+
         if skip_download:
             return AudioDownloadResult(
                 file_path=os.path.join(output_dir, f"{detail_aweme_id}.mp3"),
@@ -538,7 +699,12 @@ class DouyinDownloader(Downloader):
             raise ValueError('请求失败: 未获取到抖音媒体下载地址')
 
         media_path = os.path.join(output_dir, f"{detail_aweme_id}.{media_ext}")
-        response = requests.get(media_url, headers=self.headers_config, stream=True)
+        response = requests.get(
+                    media_url,
+                    headers=self.headers_config,
+                    stream=True,
+                    proxies=self._request_proxies(),
+                )
         response.raise_for_status()
         with open(media_path, 'wb') as f:
             for chunk in response.iter_content(1024 * 1024):
@@ -598,7 +764,12 @@ class DouyinDownloader(Downloader):
             video_data = self.fetch_video_info(video_url)
             output_path = os.path.join(output_dir, f"{video_data['aweme_detail']['aweme_id']}.mp4")
             url = video_data['aweme_detail']['video']['download_addr']['url_list'][0]
-            data = requests.get(url, allow_redirects=True, headers=self.headers_config)
+            data = requests.get(
+                url,
+                allow_redirects=True,
+                headers=self.headers_config,
+                proxies=self._request_proxies(),
+            )
             data.raise_for_status()
             with open(output_path, 'wb') as f:
                 f.write(data.content)

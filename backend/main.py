@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -40,6 +42,76 @@ if not os.path.exists(uploads_dir):
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 
+def _auto_fix_note_titles_on_startup() -> None:
+    """后端启动后延迟执行一次，修复存量数据中未按视频标题命名的笔记。
+
+    逻辑与 router. fix_note_titles 接口一致，但作为后台 daemon 线程运行，
+    不阻塞启动，也不暴露给前端。失败的任务（如 Cookie 过期、视频不可见）
+    会被静默跳过——用户仍可在前端手动重试。
+    """
+    time.sleep(30)  # 等 uvicorn 完全起来、DB 连接池稳定后再跑
+    try:
+        from app.db.video_task_dao import list_all_tasks, update_task_title
+        from app.routers.note import (
+            _load_note_result,
+            _looks_like_placeholder_title,
+            _fetch_video_title_online,
+            _sync_note_json_title,
+            _rename_markdown_to_title,
+        )
+
+        rows = list_all_tasks()
+        fixed = 0
+        failed = 0
+        for row in rows:
+            task_id = row.task_id
+            row_video_id = getattr(row, 'video_id', None)
+            row_source_url = getattr(row, 'source_url', None)
+
+            result_content = _load_note_result(task_id)
+            audio_meta = (result_content.get('audio_meta') or {}) if isinstance(result_content, dict) else {}
+            json_title = str(audio_meta.get('title') or '').strip() or None
+
+            db_title = getattr(row, 'title', None)
+            db_needs_fix = _looks_like_placeholder_title(db_title, video_id=row_video_id, source_url=row_source_url)
+            json_needs_fix = _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url)
+            if not db_needs_fix and not json_needs_fix:
+                continue
+
+            # 候选标题优先级：本地 JSON 真实标题 > DB 真实标题 > 在线补取
+            db_title_clean = str(db_title or '').strip() or None
+            candidate = None
+            if not _looks_like_placeholder_title(json_title, video_id=row_video_id, source_url=row_source_url):
+                candidate = json_title
+            elif not _looks_like_placeholder_title(db_title_clean, video_id=row_video_id, source_url=row_source_url):
+                candidate = db_title_clean
+            if not candidate:
+                candidate, _ = _fetch_video_title_online(
+                    getattr(row, 'platform', None),
+                    row_source_url,
+                )
+            if not candidate or _looks_like_placeholder_title(candidate, video_id=row_video_id, source_url=row_source_url):
+                failed += 1
+                continue
+
+            ok = True
+            if db_needs_fix and not update_task_title(task_id, candidate):
+                failed += 1
+                ok = False
+            if ok and json_needs_fix:
+                _sync_note_json_title(task_id, candidate)
+                _rename_markdown_to_title(task_id, candidate)
+            if ok:
+                fixed += 1
+
+        logger.info(
+            "[auto-fix-note-titles] 启动时自动补齐完成：共检查 %s 条, 修复 %s 条, 跳过 %s 条",
+            len(rows), fixed, failed,
+        )
+    except Exception as exc:
+        logger.warning(f"[auto-fix-note-titles] 启动时自动补齐标题失败（后台线程不影响主流程）: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动序列拆成 5 步、每步独立日志 + 异常时打明确的 [startup N/5 FAILED] 标记。
@@ -78,12 +150,17 @@ async def lifespan(app: FastAPI):
                 _pipeline_download,
                 _pipeline_transcribe,
                 _pipeline_summarize,
+                _pipeline_finalize,
             )
             from app.services.task_pipeline import task_pipeline
 
             task_pipeline.register_phase('download', _pipeline_download)
             task_pipeline.register_phase('transcribe', _pipeline_transcribe)
             task_pipeline.register_phase('summarize', _pipeline_summarize)
+            # 终态回调必须任务无关地注册一次：它从 ctx 取 task_key 释放 in-flight
+            # 标记。若改成每个任务注册闭包，并发时槽位互相覆盖会让标记泄漏，
+            # 对应视频此后一直被判定为「正在生成中」。
+            task_pipeline.register_finalize(_pipeline_finalize)
             logger.info("[startup 5c/5] 任务管道阶段回调已注册")
         except Exception as _pe:
             logger.warning(f"任务管道阶段回调注册失败: {_pe}")
@@ -96,6 +173,19 @@ async def lifespan(app: FastAPI):
             logger.info("[startup 5b/5] 自动清理调度线程已就绪")
         except Exception as _se:
             logger.warning(f"自动清理调度线程启动失败: {_se}")
+
+        # 自动补齐笔记标题：后端启动后延迟 30s 后台跑一次 fix_note_titles 逻辑，
+        # 修复存量数据中未按视频标题命名的笔记；新增任务已在 _pipeline_summarize 里自动处理。
+        try:
+            _auto_fix_titles_thread = threading.Thread(
+                target=_auto_fix_note_titles_on_startup,
+                name="auto-fix-note-titles",
+                daemon=True,
+            )
+            _auto_fix_titles_thread.start()
+            logger.info("[startup 5d/5] 自动补齐笔记标题后台线程已启动")
+        except Exception as _fe:
+            logger.warning(f"自动补齐笔记标题线程启动失败: {_fe}")
 
         logger.info("[startup 6/6] 恢复卡住的中间状态任务")
         try:

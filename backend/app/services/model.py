@@ -34,10 +34,10 @@ class ModelService:
             gpt = GPTFactory().from_config(config)
             models = gpt.list_models()
             if verbose:
-                logger.info(f"[{provider["name"]}] 模型列表: {models}")
+                logger.info(f"[{provider['name']}] 模型列表: {models}")
             return models
         except Exception as e:
-            logger.warning(f"[{provider["name"]}] 获取模型失败: {e}")
+            logger.warning(f"[{provider['name']}] 获取模型失败: {e}")
             return []
 
     @staticmethod

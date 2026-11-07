@@ -7,7 +7,7 @@ from typing import Union, Optional, List
 
 import yt_dlp
 
-from app.downloaders.base import Downloader, DownloadQuality, QUALITY_MAP
+from app.downloaders.base import Downloader, DownloadQuality, QUALITY_MAP, YDL_RETRY_OPTS
 from app.downloaders.bilibili_dm_patch import apply_bilibili_dm_img_patch
 from app.downloaders.bilibili_subtitle import BilibiliSubtitleFetcher
 from app.models.notes_model import AudioDownloadResult
@@ -83,6 +83,7 @@ class BilibiliDownloader(Downloader, ABC):
             logger.info("音频缓存存在，重新提取元信息以获取视频标题: %s", video_id)
             try:
                 info_opts = {
+                    **YDL_RETRY_OPTS,
                     'skip_download': True,
                     'quiet': True,
                     'noplaylist': True,
@@ -116,9 +117,49 @@ class BilibiliDownloader(Downloader, ABC):
                     video_path=None,
                 )
 
+        # skip_download=True：已有平台字幕，只需提取元信息（标题、封面），不下载音频
+        if skip_download:
+            logger.info("skip_download=True，仅提取 B 站元信息")
+            try:
+                info_opts = {
+                    **YDL_RETRY_OPTS,
+                    'skip_download': True,
+                    'quiet': True,
+                    'noplaylist': True,
+                    'http_headers': {'Referer': 'https://www.bilibili.com'},
+                }
+                if self._cookiefile:
+                    info_opts['cookiefile'] = self._cookiefile
+                apply_ffmpeg_location(info_opts)
+                with yt_dlp.YoutubeDL(info_opts) as ydl:
+                    info = ydl.extract_info(video_url, download=False)
+                return AudioDownloadResult(
+                    file_path=cached_audio_path or os.path.join(output_dir, f"{video_id}.mp3"),
+                    title=info.get('title') or video_id,
+                    duration=info.get('duration', 0),
+                    cover_url=info.get('thumbnail'),
+                    platform="bilibili",
+                    video_id=video_id,
+                    raw_info=info,
+                    video_path=None,
+                )
+            except Exception as exc:
+                logger.warning("skip_download 元信息提取失败，回退视频 ID: %s", exc)
+                return AudioDownloadResult(
+                    file_path=cached_audio_path or os.path.join(output_dir, f"{video_id}.mp3"),
+                    title=video_id,
+                    duration=0,
+                    cover_url=None,
+                    platform="bilibili",
+                    video_id=video_id,
+                    raw_info={"id": video_id, "title": video_id},
+                    video_path=None,
+                )
+
         output_path = os.path.join(output_dir, "%(id)s.%(ext)s")
 
         ydl_opts = {
+            **YDL_RETRY_OPTS,
             'format': 'bestaudio[ext=m4a]/bestaudio/best',
             'outtmpl': output_path,
             'http_headers': {'Referer': 'https://www.bilibili.com'},
@@ -180,6 +221,7 @@ class BilibiliDownloader(Downloader, ABC):
         output_path = os.path.join(output_dir, "%(id)s.%(ext)s")
 
         ydl_opts = {
+            **YDL_RETRY_OPTS,
             'format': 'bv*[ext=mp4]/bestvideo+bestaudio/best',
             'outtmpl': output_path,
             'http_headers': {'Referer': 'https://www.bilibili.com'},
@@ -243,6 +285,7 @@ class BilibiliDownloader(Downloader, ABC):
         video_id = extract_video_id(video_url, "bilibili")
 
         ydl_opts = {
+            **YDL_RETRY_OPTS,
             'writesubtitles': True,
             'writeautomaticsub': True,
             'subtitleslangs': langs,

@@ -16,8 +16,9 @@ from app.utils.path_helper import resolve_app_path
 
 def _resolve_local_video_url(video_url: str) -> str:
     """把 /uploads/xxx 形式的 URL 解析为实际上传目录里的文件路径（与启动 CWD 无关）。"""
-    if video_url.startswith('/uploads'):
-        return os.path.normpath(os.path.join(resolve_app_path('uploads'), video_url.lstrip('/')))
+    if video_url.startswith('/uploads/'):
+        rel = video_url[len('/uploads/'):].lstrip('/')
+        return os.path.normpath(os.path.join(resolve_app_path('uploads'), rel))
     return video_url
 
 
@@ -108,7 +109,8 @@ class LocalDownloader(Downloader, ABC):
             video_url: str,
             output_dir: str = None,
             quality: DownloadQuality = "fast",
-            need_video: Optional[bool] = False
+            need_video: Optional[bool] = False,
+            skip_download: bool = False,
     ) -> AudioDownloadResult:
         """
         处理本地文件路径，返回音频元信息

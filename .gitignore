@@ -263,9 +263,8 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
-.venv
+# Environments — 所有 Python venv（含 .venv、.venv313、.venv3.12 等）
+.venv*/
 env/
 venv/
 ENV/
@@ -346,4 +345,3 @@ vector_db/
 
 # 运行时任务产物（JSON 结果、状态、checkpoint）
 backend/json_results/
-backend/.venv*/
