@@ -245,6 +245,23 @@ const createFormData = (item: HistoryItem): TaskFormData => ({
   grid_size: item.request_payload?.grid_size,
 })
 
+const toCreatedAtMs = (value?: string) => {
+  if (!value)
+    return 0
+  const ts = new Date(value).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+/** 项目内笔记列表统一按创建时间从近到远。持久化的旧顺序或未重启的旧后端
+ * 都可能给出升序数据，读取时归一化保证展示顺序不受来源影响。 */
+const byCreatedAtDesc = (a: HistoryItem, b: HistoryItem) =>
+  toCreatedAtMs(b.created_at) - toCreatedAtMs(a.created_at)
+
+/** 任务卡片（Task）版本的同一比较器：batchItems 未就绪时列表会退回
+ * group.taskIds（提交顺序），同样需要归一化成从近到远。 */
+export const sortTasksByCreatedAtDesc = <T extends { createdAt?: string }>(items: T[]): T[] =>
+  [...items].sort((a, b) => toCreatedAtMs(b.createdAt) - toCreatedAtMs(a.createdAt))
+
 export const createHistoryTask = (item: HistoryItem): Task => {
   const result = item.result || {}
   return {
@@ -268,15 +285,16 @@ export const createHistoryTask = (item: HistoryItem): Task => {
 const patchHistoryCardTask = (existing: Task, item: HistoryItem): Task => {
   if (hasFullHistoryResult(item)) {
     const restored = createHistoryTask(item)
-    return {
+    const next: Task = {
       ...existing,
       ...restored,
       formData: restored.formData,
     }
+    return taskSnapshotEquals(existing, next) ? existing : next
   }
 
   const incomingAudioMeta = item.result?.audio_meta || {}
-  return {
+  const next: Task = {
     ...existing,
     status: parseTaskStatus(item.status, existing.status),
     createdAt: item.created_at || existing.createdAt,
@@ -297,7 +315,22 @@ const patchHistoryCardTask = (existing: Task, item: HistoryItem): Task => {
       video_id: incomingAudioMeta.video_id || existing.audioMeta?.video_id || item.video_id || '',
     },
   }
+  // 轮询每 3s 都会走这里：数据无变化时返回原对象，保持引用稳定。
+  // 否则 currentTask 引用每 3s 变一次，NoteForm 的 reset effect / 各订阅组件被反复触发。
+  return taskSnapshotEquals(existing, next) ? existing : next
 }
+
+/** 比较两份 Task 的全部业务字段（markdown/transcript 走 JSON 比较覆盖结构化内容） */
+const taskSnapshotEquals = (a: Task, b: Task): boolean =>
+  a.status === b.status
+  && a.createdAt === b.createdAt
+  && a.platform === b.platform
+  && a.batchId === b.batchId
+  && a.batchName === b.batchName
+  && a.sourceUrl === b.sourceUrl
+  && a.message === b.message
+  && JSON.stringify([a.formData, a.audioMeta, a.markdown, a.transcript])
+    === JSON.stringify([b.formData, b.audioMeta, b.markdown, b.transcript])
 
 const getRetrySkipReasonLabel = (reason?: string, fallbackStatus?: string) => {
   if (!reason) {
@@ -405,6 +438,26 @@ const resolveBatchControlState = (
   if (controlState)
     return controlState
   return summary.pending > 0 ? 'RUNNING' : 'COMPLETED'
+}
+
+// /batch_status 返回的是该批次在服务端的全量任务清单。本地残留、但服务端已不存在的
+// 终态任务（离线清理重复行等历史操作遗留的“幽灵任务”）必须剔除：否则它们会一直
+// 挂在失败角标/失败列表里，而「一键清理失败任务」在服务端找不到对应行，
+// 点了只会提示「当前没有可清理的失败任务」。
+// 仅剔除终态：PENDING/进行中的任务可能是刚提交、尚未写入服务端的本地乐观任务。
+const PRUNABLE_BATCH_STATUSES = new Set<TaskStatus>(['SUCCESS', 'FAILED', 'CANCELED', 'RETRYABLE'])
+
+const findGhostBatchTaskIds = (
+  tasks: Iterable<{ id: string, batchId?: string, status: TaskStatus }>,
+  batchId: string,
+  serverTaskIds: Set<string>,
+): Set<string> => {
+  const ghostIds = new Set<string>()
+  for (const task of tasks) {
+    if (task.batchId === batchId && !serverTaskIds.has(task.id) && PRUNABLE_BATCH_STATUSES.has(task.status))
+      ghostIds.add(task.id)
+  }
+  return ghostIds
 }
 
 const memoryStorage = new Map<string, string>()
@@ -540,7 +593,9 @@ export const useTaskStore = create<TaskStore>()(
         return batchId
       },
 
-      getBatchItems: batchId => get().batchItems[batchId] || [],
+      // 项目内笔记列表按创建时间从近到远：持久化的旧顺序、以及尚未重启的旧后端
+      // 都可能给出升序数据，故在读取这一处统一归一化，两个面板都走这个入口。
+      getBatchItems: batchId => [...(get().batchItems[batchId] || [])].sort(byCreatedAtDesc),
 
       setBatchFilter: (batchId, filter) => set(state => ({
         batchGroups: state.batchGroups.map(group =>
@@ -556,7 +611,10 @@ export const useTaskStore = create<TaskStore>()(
             return existing ? patchHistoryCardTask(existing, item) : createHistoryTask(item)
           })
           const mergedBatchMap = new Map(mergedBatchTasks.map(task => [task.id, task]))
+          const ghostIds = findGhostBatchTaskIds(state.tasks, batchId, new Set(items.map(item => item.task_id)))
+          const currentTaskId = get().currentTaskId
           const tasks = state.tasks
+            .filter(task => !ghostIds.has(task.id) || task.id === currentTaskId)
             .map(task => (task.batchId === batchId ? (mergedBatchMap.get(task.id) || task) : task))
           for (const task of mergedBatchTasks) {
             if (!existingMap.has(task.id))
@@ -1024,8 +1082,19 @@ export const useTaskStore = create<TaskStore>()(
             const merged = [...state.tasks]
             for (const task of restored) {
               const idx = merged.findIndex(existing => existing.id === task.id)
-              if (idx >= 0)
-                merged[idx] = { ...merged[idx], ...task }
+              if (idx >= 0) {
+                const existingTask = merged[idx]
+                const next = { ...existingTask, ...task }
+                // light 数据不带正文/转写/封面：不能覆盖 IndexedDB 里已缓存的完整内容，
+                // 否则刷新页面后自动选中的最新笔记正文被洗成空串，预览区显示空占位。
+                if (!task.markdown && existingTask.markdown)
+                  next.markdown = existingTask.markdown
+                if (!task.transcript?.full_text && existingTask.transcript?.full_text)
+                  next.transcript = existingTask.transcript
+                if (!task.audioMeta?.cover_url && existingTask.audioMeta?.cover_url)
+                  next.audioMeta = existingTask.audioMeta
+                merged[idx] = next
+              }
               else merged.push(task)
             }
             merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -1070,6 +1139,12 @@ export const useTaskStore = create<TaskStore>()(
               _unloadedBatchIds: unloadedBatchIds,
             }
           })
+
+          // 自动选中的笔记走一次 setCurrentTask：正文缺失（冷启动/缓存被清）时触发加载，
+          // 让预览区显示 loading 而不是停在「输入视频链接…」空占位。
+          // 正文已存在时 setCurrentTask 内部会直接返回，不会发请求。
+          const autoSelectedId = get().currentTaskId
+          if (autoSelectedId) get().setCurrentTask(autoSelectedId)
 
           // Silently fetch tasks for batches not in the initial page
           // 用 light=true：项目列表只需要状态/标题做卡片展示，全量 markdown/transcript
@@ -1187,6 +1262,19 @@ export const useTaskStore = create<TaskStore>()(
                 mergedMap.set(patched.id, patched)
               }
               batchItems[group.id] = items
+              // 服务端批次清单为全量：剔除服务端已不存在的终态本地任务（幽灵任务），
+              // 否则它们一直留在失败角标里，而清理接口在服务端找不到行、永远提示无任务可清理
+              const ghostIds = findGhostBatchTaskIds(
+                mergedMap.values(),
+                group.id,
+                new Set(items.map(item => item.task_id)),
+              )
+              for (const ghostId of ghostIds) {
+                // 正在预览的任务不做幽灵剔除：服务端批次被清理/瞬时空清单时，
+                // 避免当前选中的笔记被静默删除、预览选中被清空
+                if (ghostId === state.currentTaskId) continue
+                mergedMap.delete(ghostId)
+              }
               // patch 该 batch 的控制状态和计数
               const target = nextBatchGroups.find(g => g.id === group.id)
               if (target) {
@@ -1209,7 +1297,7 @@ export const useTaskStore = create<TaskStore>()(
               tasks: mergedTasks,
               batchGroups,
               batchItems,
-              currentTaskId: state.currentTaskId,
+              currentTaskId: state.currentTaskId && mergedMap.has(state.currentTaskId) ? state.currentTaskId : null,
               keepFormDraft: state.keepFormDraft,
               historyHasMore: history.length >= limit,
               hasHydrated: true,
@@ -1278,7 +1366,9 @@ export const useTaskStore = create<TaskStore>()(
           } catch {
             // 拉取失败：清除 loading，让预览区回到空占位（下次点击会重试）
           } finally {
-            set({ loadingTaskId: null })
+            // 只清理自己这条请求的 loading：快速连续点击两条笔记时，
+            // 先发出的旧请求后结束，不能清掉新选中笔记仍在进行的加载态
+            set(state => (state.loadingTaskId === taskId ? { loadingTaskId: null } : state))
           }
         })()
       },
@@ -1304,13 +1394,28 @@ export const useTaskStore = create<TaskStore>()(
       },
 
       moveTaskToProject: async (taskId: string, batchId: string, batchName: string): Promise<boolean> => {
+        // 空 batchId + 空 batchName = 移出项目：本地要落成 undefined 而不是空字符串，
+        // 否则任务会带着 batchId: '' 留在列表里，卡片仍显示"移出当前项目"入口。
+        const nextBatchId = batchId || undefined
+        const nextBatchName = batchName || undefined
         try {
           await moveTaskToBatch(taskId, batchId, batchName)
           set(state => {
             const tasks = state.tasks.map(t =>
-              t.id === taskId ? { ...t, batchId, batchName } : t,
+              t.id === taskId ? { ...t, batchId: nextBatchId, batchName: nextBatchName } : t,
             )
-            return { tasks, batchGroups: buildBatchGroups(tasks, state.batchGroups) }
+            // 移出项目时同步摘掉 batchItems 里的残留条目：项目面板的列表在
+            // remote 分支以 batchItems 为准，不清掉的话这条任务仍会出现在
+            // 原项目里（该项目的 taskIds 已不包含它）。
+            const batchItems = batchId
+              ? state.batchItems
+              : Object.fromEntries(
+                  Object.entries(state.batchItems).map(([id, items]) => [
+                    id,
+                    items.filter(item => item.task_id !== taskId),
+                  ]),
+                )
+            return { tasks, batchItems, batchGroups: buildBatchGroups(tasks, state.batchGroups) }
           })
           return true
         } catch {

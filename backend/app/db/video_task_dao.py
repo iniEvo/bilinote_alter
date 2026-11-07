@@ -266,7 +266,10 @@ def list_tasks_by_batch(batch_id: str):
         tasks = (
             db.query(VideoTask)
             .filter_by(batch_id=batch_id)
-            .order_by(VideoTask.created_at.asc())
+            # 项目内笔记列表按创建时间从近到远。SQLite CURRENT_TIMESTAMP 只有秒级
+            # 精度，同批提交的任务常落在同一秒内，故用自增 id 兜底，保证同秒内也
+            # 按提交先后倒序，列表顺序稳定。
+            .order_by(VideoTask.created_at.desc(), VideoTask.id.desc())
             .all()
         )
         return _attach_request_payload_list(tasks)
@@ -375,15 +378,17 @@ def rename_batch(batch_id: str, new_name: str) -> bool:
         db.close()
 
 
-def move_task_to_batch(task_id: str, batch_id: str, batch_name: str) -> bool:
-    """Move a single task into a batch."""
+def move_task_to_batch(task_id: str, batch_id: Optional[str], batch_name: Optional[str]) -> bool:
+    """Move a single task into a batch; empty batch values detach it from any batch."""
     db = next(get_db())
     try:
         task = db.query(VideoTask).filter_by(task_id=task_id).first()
         if not task:
             return False
-        task.batch_id = batch_id
-        task.batch_name = batch_name
+        # 统一存 NULL：detach（移出项目）与 get_all_batches 的 isnot(None) 过滤
+        # 才一致，否则会留下空字符串批次被前端当成"无名项目"渲染出来。
+        task.batch_id = batch_id or None
+        task.batch_name = batch_name or None
         db.commit()
         return True
     except Exception as e:

@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useModelStore } from '@/store/modelStore'
 import {
-  useTaskStore, createHistoryTask, HISTORY_PAGE_SIZE,
+  useTaskStore, createHistoryTask, HISTORY_PAGE_SIZE, sortTasksByCreatedAtDesc,
   type Task, type BatchControlState,
 } from '@/store/taskStore'
 import {
@@ -197,9 +197,11 @@ const BatchTasks = () => {
         .filter(item => visibleTaskIds.has(item.task_id))
         .map(item => taskMap.get(item.task_id) || createHistoryTask(item))
     }
-    return selectedGroup.taskIds
-      .map(id => taskMap.get(id))
-      .filter((t): t is Task => Boolean(t))
+    return sortTasksByCreatedAtDesc(
+      selectedGroup.taskIds
+        .map(id => taskMap.get(id))
+        .filter((t): t is Task => Boolean(t)),
+    )
   }, [selectedGroup, getBatchItems, taskMap])
 
   const duplicates = useMemo(() => results.filter(r => r.needs_confirmation && r.duplicate_task), [results])

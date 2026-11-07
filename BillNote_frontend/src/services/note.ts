@@ -247,7 +247,14 @@ export interface FixNoteTitlesResult {
 }
 
 export const fixNoteTitles = async (fetchOnline = false) => {
-  return await request.post('/fix_note_titles', { fetch_online: fetchOnline }) as FixNoteTitlesResult
+  // 后端要遍历全部笔记逐条在线补取标题（实测 135 条待补取时耗时 17s+，
+  // 网络不畅时更久），全局默认 10s 超时会在后端完成前掐断，误报
+  // 「请求失败，请检查网络连接」。这里放宽到 10 分钟；失败由调用方
+  // （ManualFeatures）自行 catch 提示，suppress 掉全局红 toast 避免重复弹两条。
+  return await request.post('/fix_note_titles', { fetch_online: fetchOnline }, {
+    timeout: 600000,
+    suppressToast: true,
+  }) as FixNoteTitlesResult
 }
 
 export const getHistory = async (params?: { limit?: number, offset?: number, include_pending?: boolean, batch_id?: string, light?: boolean }) => {

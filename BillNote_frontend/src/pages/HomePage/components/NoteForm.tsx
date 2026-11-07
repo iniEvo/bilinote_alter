@@ -76,6 +76,9 @@ const KNOWN_TASK_STATUSES = new Set<TaskStatus>([
   'RETRYABLE',
 ])
 
+/** 用户粘贴的链接常缺协议头（如 bilibili.com/...），无任何 scheme 时自动补 https:// */
+const withScheme = (url: string) => (!url || /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`)
+
 const formSchema = z
   .object({
     video_url: z.string().optional(),
@@ -117,7 +120,7 @@ const formSchema = z
 
     const validateHttpUrl = (value: string, path: 'video_url' | 'batch_video_urls') => {
       try {
-        const url = new URL(value)
+        const url = new URL(withScheme(value))
         if (!['http:', 'https:'].includes(url.protocol))
           throw new Error()
       } catch {
@@ -292,16 +295,27 @@ const NoteForm = () => {
     }
   }, [uniqueModels, form])
 
+  const formResetSigRef = useRef<string | null>(null)
+
   useEffect(() => {
-    if (!currentTask)
+    if (!currentTask) {
+      // 已离开任务选择（如新建笔记）：清掉签名，下次选中同一条笔记时仍会正常回填
+      formResetSigRef.current = null
       return
+    }
     const { formData } = currentTask
     const sanitizedVideoUnderstanding = sanitizeVideoUnderstandingValues(formData)
-    form.reset({
+    // 历史任务记录的模型可能已被禁用/删除。此处必须校验后再回填，
+    // 否则会用失效模型覆盖上面的自动切换结果，导致提交时找不到模型而被拦截（不会发起请求）。
+    const restoredModel = uniqueModels.length === 0
+      || uniqueModels.some(model => model.model_name === formData.model_name)
+      ? formData.model_name
+      : uniqueModels[0]?.model_name || ''
+    const payload = {
       platform: formData.platform || 'bilibili',
       video_url: formData.video_url || '',
       batch_video_urls: '',
-      model_name: formData.model_name || uniqueModels[0]?.model_name || '',
+      model_name: restoredModel || uniqueModels[0]?.model_name || '',
       style: formData.style || 'minimal',
       quality: formData.quality || 'medium',
       extras: formData.extras || '',
@@ -311,11 +325,24 @@ const NoteForm = () => {
       video_interval: sanitizedVideoUnderstanding.video_interval,
       grid_size: sanitizedVideoUnderstanding.grid_size,
       format: formData.format ?? [],
-    })
+    }
+    // 轮询会周期性更新任务状态（status/message 变化都会产生新的 currentTask 引用），
+    // 只要回填字段的值没变就不 reset：否则生成期间用户对备注/格式/风格的修改
+    // 会被每 3 秒打回任务的 formData 初始值。
+    const sig = JSON.stringify([
+      currentTaskId,
+      payload,
+      uniqueModels.map(model => model.model_name),
+    ])
+    if (formResetSigRef.current === sig)
+      return
+    formResetSigRef.current = sig
+    form.reset(payload)
   }, [currentTask, currentTaskId, uniqueModels, form])
 
   const activeTask = keepFormDraft ? null : currentTask
-  const generating = !['SUCCESS', 'FAILED', 'RETRYABLE', undefined].includes(activeTask?.status)
+  // PAUSED/CANCELED 不是进行中：否则暂停批次后点开其中笔记，生成按钮会永久锁死
+  const generating = !['SUCCESS', 'FAILED', 'RETRYABLE', 'PAUSED', 'CANCELED', undefined].includes(activeTask?.status)
 
   const handleFileUpload = async (file: File, cb: (url: string) => void) => {
     const formData = new FormData()
@@ -507,9 +534,13 @@ const NoteForm = () => {
       finalBatchName = projects.find(p => p.batch_id === selectedBatchId)?.batch_name || ''
     }
 
-    const batchUrls = Array.from(new Set((values.batch_video_urls || '').split('\n').map(line => line.trim()).filter(Boolean)))
+    // 本地路径不需要补协议头，网络链接统一补 https:// 后再提交
+    const isLocalPlatform = values.platform === 'local'
+    const withUrlScheme = (url: string) => (isLocalPlatform ? url : withScheme(url))
+    const batchUrls = Array.from(new Set((values.batch_video_urls || '').split('\n').map(line => withUrlScheme(line.trim())).filter(Boolean)))
     const singleUrl = values.video_url?.trim()
-    const allUrls = [singleUrl, ...batchUrls].filter(Boolean) as string[]
+    const normalizedSingleUrl = singleUrl ? withUrlScheme(singleUrl) : singleUrl
+    const allUrls = [normalizedSingleUrl, ...batchUrls].filter(Boolean) as string[]
 
     const sanitizedVideoUnderstanding = sanitizeVideoUnderstandingValues(values)
     const commonPayload = {
@@ -531,7 +562,7 @@ const NoteForm = () => {
     const currentStoreTask = currentTaskId
       ? useTaskStore.getState().tasks.find(task => task.id === currentTaskId) || null
       : null
-    const retryVideoUrl = singleUrl || currentStoreTask?.formData?.video_url || ''
+    const retryVideoUrl = normalizedSingleUrl || currentStoreTask?.formData?.video_url || ''
     const canRetryCurrentTask = Boolean(
       currentStoreTask
       && allUrls.length <= 1
@@ -563,7 +594,7 @@ const NoteForm = () => {
 
       await submitSingleNote({
         ...commonPayload,
-        video_url: singleUrl || '',
+        video_url: normalizedSingleUrl || '',
         task_id: currentTaskId || '',
       }, values.platform)
     } catch (e: unknown) {

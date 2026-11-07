@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.db.video_task_dao import (
     _cached_load_task_status,
@@ -46,7 +46,7 @@ from app.utils.output_paths import (
     transcript_json_path,
 )
 from app.utils.response import ResponseWrapper as R
-from app.utils.url_parser import extract_video_id
+from app.utils.url_parser import extract_video_id, normalize_video_url
 from app.utils.path_helper import resolve_app_path
 from app.validators.video_url_validator import is_supported_video_url
 
@@ -190,6 +190,15 @@ class VideoRequest(BaseModel):
     batch_id: Optional[str] = None
     batch_name: Optional[str] = None
 
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_url(cls, data):
+        # 稍后再看/收藏夹/带追踪参数的 B 站链接先规范化成标准 /video/BVxxx 形式，
+        # 后续校验和 yt-dlp 下载拿到的都是干净链接
+        if isinstance(data, dict) and data.get('platform') == 'bilibili' and data.get('video_url'):
+            data['video_url'] = normalize_video_url(str(data['video_url']))
+        return data
+
     @field_validator('video_url')
     def validate_supported_url(cls, v):
         url = str(v).strip()
@@ -311,6 +320,14 @@ def _persist_prefetched_transcript(task_id: str, transcript: dict) -> None:
 def _resolve_effective_status(task_id: str, result=None, *, row=None, skip_result_load: bool = False):
     if not skip_result_load:
         result = result if result is not None else _load_note_result(task_id)
+    else:
+        # light 轮询不读上百 KB 的 note JSON，但「结果文件是否存在」只是一次 stat。
+        # 全量口径以结果文件为成功信号，light 必须对齐：否则 status 文件被清理后，
+        # 列表按缺失回退成 FAILED，而详情/清理按结果文件判 SUCCESS —— 两边不一致，
+        # 会出现「列表显示失败任务，一键清理失败任务却提示没有可清理任务」。
+        note_json = note_json_path(task_id)
+        if note_json.is_file() and note_json.stat().st_size > 0:
+            return TaskStatus.SUCCESS.value, ''
     status, message = _load_task_status(task_id, row=row)
     if result is not None:
         return TaskStatus.SUCCESS.value, ''
@@ -346,9 +363,9 @@ def _history_sort_priority(item: dict) -> tuple[int, float]:
 
 def _build_task_item(task_id: str, *, row=None, light: bool = False):
     if light:
-        # 列表轮询(light)：不读 note JSON 文件——每条 result 上百 KB，
+        # 列表轮询(light)：不读 note JSON 文件内容——每条 result 上百 KB，
         # 几百条任务全量读盘是 history/batch_status 变慢的主因。
-        # 状态只看 status 文件 + DB 行；result 置 None，详情页再单独拉全量。
+        # 状态看 status 文件 + 结果文件是否存在(仅 stat) + DB 行；详情页再单独拉全量。
         status, message = _resolve_effective_status(task_id, result=None, row=row, skip_result_load=True)
         request_payload = dict(getattr(row, 'request_payload_data', None) or {})
         source_url = _canonical_video_url(
@@ -851,6 +868,18 @@ def _pipeline_summarize(task_id: str, ctx: dict, **params):
     return note
 
 
+def _pipeline_finalize(task_id: str, ctx: Optional[dict] = None) -> None:
+    """任务终态回调：释放该任务的 in-flight 标记。
+
+    必须在启动时按「任务无关」注册一次（见 main.py）。ctx 携带 task_key，
+    因此无需为每个任务注册捕获自身 ctx 的闭包——pipeline 的 finalize 槽位
+    只有一个，那样并发任务会互相覆盖，导致除最后一个之外的任务标记全部泄漏，
+    对应视频此后一直被判定为「正在生成中」而无法重新生成。
+    """
+    task_key = (ctx or {}).get('task_key')
+    _release_inflight_task(task_id, task_key)
+
+
 def run_note_task(
     task_id: str,
     video_url: str,
@@ -878,13 +907,10 @@ def run_note_task(
     batch_id = getattr(row, 'batch_id', None)
     task_key = (platform, video_id or video_url)
 
-    def _finalize(task_id_arg: str):
-        with _video_task_lock:
-            if _inflight_video_tasks.get(task_key) == task_id_arg:
-                _inflight_video_tasks.pop(task_key, None)
-
-    # 接线终态回调（pipeline 级，一次注册，回调内读 ctx 不依赖 run_note_task 闭包变量）
-    task_pipeline.register_finalize(_finalize)
+    # 注意：这里不注册 finalize 回调。pipeline 的 finalize 是单槽位，
+    # 每个任务注册一个捕获自己 task_key 的闭包会互相覆盖，导致并发任务
+    # 结束后 in-flight 标记无法清理。改为启动时注册一次任务无关的回调
+    # （_pipeline_finalize），由它从 ctx 取 task_key。
 
     # 入队：ctx 携带全部生成参数和批次上下文
     task_pipeline.enqueue(
@@ -951,17 +977,19 @@ def rename_batch_endpoint(data: dict):
 
 @router.post('/move_task_to_batch')
 def move_task_to_batch_endpoint(data: dict):
-    task_id = data.get('task_id', '').strip()
-    batch_id = data.get('batch_id', '').strip()
-    batch_name = data.get('batch_name', '').strip()
+    task_id = str(data.get('task_id') or '').strip()
+    batch_id = str(data.get('batch_id') or '').strip()
+    batch_name = str(data.get('batch_name') or '').strip()
     if not task_id:
         return R.error(msg='task_id 不能为空', code=400)
-    if not batch_id or not batch_name:
-        return R.error(msg='batch_id 和 batch_name 不能为空', code=400)
-    success = move_task_to_batch(task_id, batch_id, batch_name)
+    # 两个都为空 = 把任务移出当前项目（清空归属，卡片回到历史列表）；
+    # 两个都给出 = 移入项目。只给出其中一个会让批次处于无名或有 id 无归属的半状态。
+    if bool(batch_id) != bool(batch_name):
+        return R.error(msg='batch_id 和 batch_name 必须同时提供或同时为空', code=400)
+    success = move_task_to_batch(task_id, batch_id or None, batch_name or None)
     if not success:
         return R.error(msg='任务不存在', code=404)
-    return R.success(msg='已移动到项目')
+    return R.success(msg='已移出项目' if not batch_id else '已移动到项目')
 
 
 @router.get('/all_batches')
@@ -1342,16 +1370,54 @@ def _fetch_video_title_online(platform: Optional[str], video_url: Optional[str])
         return None, '缺少可用的视频链接'
     try:
         if platform == 'douyin':
-            # 抖音必须复用下载器的 Cookie / 请求配置，否则报 Fresh cookies
-            import tempfile
-
+            # 抖音必须复用下载器的 Cookie / 请求配置，否则报 Fresh cookies。
+            # 优先走移动端 detail 接口：2026 年 www.douyin.com 的 aweme/detail
+            # 加了 uifid 签名风控，yt-dlp 会被 403 并误报「Fresh cookies」
+            # （Cookie 实际有效）；api*-normal-c-hl.amemv.com 不校验 uifid，
+            # 与下载器 _fetch_video_info_mobile 同源，可稳定取到标题。
             from app.downloaders.douyin_downloader import DouyinDownloader
-            info = DouyinDownloader()._extract_info_with_ytdlp(url, download=False, output_dir=tempfile.gettempdir())
+
+            downloader = DouyinDownloader()
+            aweme_id = downloader.extract_video_id(url)
+            if not aweme_id:
+                return None, '无法从链接解析出抖音视频 ID'
+            info = None
+            last_error: Optional[Exception] = None
+            # 批量修复会连续发起上百次请求，抖音接口会限流，失败后重试即可恢复。
+            # 不再回退 yt-dlp：其 web detail 接口必然被 uifid 风控 403，只会把
+            # 限流/视频不可见误报成「Cookie 已失效」。
+            import time
+
+            for attempt in range(3):
+                try:
+                    detail = downloader._fetch_video_info_mobile(aweme_id) or {}
+                    info = detail.get('aweme_detail') or {}
+                    last_error = None
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    if '未返回视频信息' in str(exc):
+                        break  # 视频不可见，重试无意义
+                    if attempt < 2:
+                        time.sleep(2)
+            if info and (info.get('title') or info.get('desc')):
+                pass
+            elif info:
+                # aweme_detail 存在但 desc 为空：作者发布时未配文案，无标题可取
+                return None, '视频无标题文案，无法重命名'
+            elif last_error is not None and '未返回视频信息' in str(last_error):
+                # 视频已删除/设为私密
+                return None, '视频已删除或不可见，无法获取标题'
+            else:
+                logger.warning('抖音接口获取标题失败 (%s): %s', url, last_error)
+                return None, f'抖音接口获取标题失败: {str(last_error)[:80]}'
         else:
             import yt_dlp
+            from app.downloaders.base import YDL_RETRY_OPTS
             from app.downloaders.yt_dlp_options import apply_ffmpeg_location
 
             opts = {
+                **YDL_RETRY_OPTS,
                 'skip_download': True,
                 'quiet': True,
                 'no_warnings': True,
@@ -1366,7 +1432,8 @@ def _fetch_video_title_online(platform: Optional[str], video_url: Optional[str])
                 pass
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-        title = (info or {}).get('title')
+        # 移动端 detail 接口的标题字段是 desc，yt-dlp 是 title
+        title = (info or {}).get('title') or (info or {}).get('desc')
         title = str(title).strip() or None
         return (title, None if title else '未返回有效标题')
     except Exception as exc:

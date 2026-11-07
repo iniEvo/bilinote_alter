@@ -59,7 +59,7 @@ class TaskPipeline:
             max_workers=self._summarize_workers, thread_name_prefix='pipe-sm',
         )
         self._phase_callbacks: dict[str, Callable[..., Any]] = {}
-        self._finalize_callback: Optional[Callable[[str], None]] = None
+        self._finalize_callback: Optional[Callable[..., None]] = None
         self._lock = threading.Lock()
         logger.info(
             'TaskPipeline 初始化: download=%d transcribe=%d summarize=%d',
@@ -83,8 +83,13 @@ class TaskPipeline:
         with self._lock:
             self._phase_callbacks[phase] = fn
 
-    def register_finalize(self, fn: Callable[[str], None]) -> None:
-        """注册任务终态回调（清理 in-flight 标记等）。"""
+    def register_finalize(self, fn: Callable[..., None]) -> None:
+        """注册任务终态回调（清理 in-flight 标记等）。
+
+        回调签名为 fn(task_id, ctx=None)。ctx 取自任务的跨阶段上下文，
+        带上它回调才能拿到 task_key —— 否则每个任务都得注册一个捕获自己
+        ctx 的闭包，而本槽位只有一个，并发任务会互相覆盖导致标记泄漏。
+        """
         with self._lock:
             self._finalize_callback = fn
 
@@ -100,23 +105,24 @@ class TaskPipeline:
     # ── 阶段调度 ────────────────────────────────────────────────────
     def _run_phase(self, phase: str, task_id: str, params: dict[str, Any]) -> None:
         """在对应阶段池中执行 phase 函数，并把返回值交给下一阶段或收尾。"""
+        ctx = params.get('ctx') if isinstance(params, dict) else None
         try:
             fn = self._phase_callbacks.get(phase)
             if fn is None:
                 logger.error('Pipeline 阶段 %s 未注册 (task_id=%s)', phase, task_id)
-                self._finalize(task_id)
+                self._finalize(task_id, ctx)
                 return
             logger.info('Pipeline 阶段 %s 开始 (task_id=%s)', phase, task_id)
             result = fn(task_id=task_id, **params)
         except Exception as exc:
             logger.error('Pipeline 阶段 %s 异常 (task_id=%s): %s', phase, task_id, exc, exc_info=True)
-            self._finalize(task_id)
+            self._finalize(task_id, ctx)
             return
 
         if result is None:
             # 阶段内已写终态（FAILED/RETRYABLE/PAUSED/CANCELED），任务终止。
             logger.info('Pipeline 任务终止于阶段 %s (task_id=%s)', phase, task_id)
-            self._finalize(task_id)
+            self._finalize(task_id, ctx)
             return
 
         next_phase = {
@@ -126,7 +132,7 @@ class TaskPipeline:
         if next_phase is None:
             # summarize 阶段是最后一段，result 为已完成的 NoteResult。
             logger.info('Pipeline 任务完成 (task_id=%s)', task_id)
-            self._finalize(task_id)
+            self._finalize(task_id, ctx)
             return
 
         # 进入下一阶段对应池
@@ -144,11 +150,11 @@ class TaskPipeline:
             'summarize': self._summarize_pool,
         }[phase]
 
-    def _finalize(self, task_id: str) -> None:
+    def _finalize(self, task_id: str, ctx: Optional[dict] = None) -> None:
         try:
             fn = self._finalize_callback
             if fn is not None:
-                fn(task_id)
+                fn(task_id, ctx)
         except Exception as exc:
             logger.warning('Pipeline finalize 失败 (task_id=%s): %s', task_id, exc)
 

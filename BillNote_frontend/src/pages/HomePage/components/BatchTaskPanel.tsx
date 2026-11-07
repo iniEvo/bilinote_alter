@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog.tsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils.ts'
-import { createHistoryTask, HISTORY_PAGE_SIZE, useTaskStore, type Task } from '@/store/taskStore'
+import { createHistoryTask, HISTORY_PAGE_SIZE, sortTasksByCreatedAtDesc, useTaskStore, type Task } from '@/store/taskStore'
 import TaskHistoryCard from '@/pages/HomePage/components/TaskHistoryCard.tsx'
 
 const BATCH_GROUP_PAGE_SIZE = 5
@@ -360,9 +360,11 @@ const BatchTaskPanel = ({ selectedId, onSelect, searchValue = '' }: BatchTaskPan
             ? remoteItems
                 .filter(item => visibleTaskIds.has(item.task_id))
                 .map(item => taskMap.get(item.task_id) || createHistoryTask(item))
-            : group.taskIds
-                .map(taskId => taskMap.get(taskId))
-                .filter((task): task is Task => Boolean(task)))
+            : sortTasksByCreatedAtDesc(
+                group.taskIds
+                  .map(taskId => taskMap.get(taskId))
+                  .filter((task): task is Task => Boolean(task)),
+              ))
           const filter = group.filter || 'all'
           const normalizedItems = items.map(task => ({
             ...task,

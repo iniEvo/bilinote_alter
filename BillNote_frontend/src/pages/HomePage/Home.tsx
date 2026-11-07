@@ -31,11 +31,15 @@ export const HomePage: FC = () => {
       setStatus('success')
     } else if (currentTask.status === 'FAILED' || currentTask.status === 'RETRYABLE') {
       setStatus('failed')
+    } else if (currentTask.status === 'PAUSED' || currentTask.status === 'CANCELED') {
+      // 暂停/取消不是进行中：有正文展示正文，否则回空态，
+      // 不能落到 loading（会永远显示「正在生成笔记，请稍候…」）
+      setStatus(content ? 'success' : 'idle')
     } else {
       // PENDING、PARSING、DOWNLOADING、TRANSCRIBING、SUMMARIZING 等所有进行中状态
       setStatus('loading')
     }
-  }, [currentTask, currentTask?.status])
+  }, [currentTask, currentTask?.status, content])
 
   // useEffect( () => {
   //     get_task_status('d4e87938-c066-48a0-bbd5-9bec40d53354').then(res=>{
