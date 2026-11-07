@@ -61,10 +61,6 @@ _batch_controls = BatchControlStore()
 _STALE_PENDING_GRACE = timedelta(seconds=30)
 
 
-def _make_batch_name() -> str:
-    return datetime.now().strftime('%Y%m%d%H%M%S')
-
-
 def _normalize_duplicate_key(video_url: Optional[str], platform: Optional[str]) -> Optional[str]:
     candidate = str(video_url or '').strip()
     if not candidate:
@@ -1102,7 +1098,29 @@ def generate_notes_batch(data: BatchVideoRequest, background_tasks: BackgroundTa
             return enabled_error
 
         batch_id = data.batch_id or str(uuid.uuid4())
-        batch_name = data.batch_name or _make_batch_name()
+        # batch_name 处理优先级：
+        #   1. 前端显式传入的 data.batch_name  >
+        #   2. 同一 batch_id 在 DB 里已有的 batch_name（加入已有 batch 时继承）  >
+        #   3. None（不存时间戳占位符，避免后续同一 batch 多个 name）
+        batch_name = data.batch_name or None
+        if batch_name is None and data.batch_id:
+            # 加入已有 batch：查一次 DB 里这个 batch_id 已经叫什么名字
+            try:
+                from app.db.engine import SessionLocal
+                from app.db.models.models import VideoTask
+                _s = SessionLocal()
+                try:
+                    _r = _s.query(VideoTask.batch_name).filter(
+                        VideoTask.batch_id == batch_id,
+                        VideoTask.batch_name.isnot(None),
+                        VideoTask.batch_name != '',
+                    ).first()
+                    if _r and _r[0]:
+                        batch_name = _r[0]
+                finally:
+                    _s.close()
+            except Exception:
+                pass
         items = []
         confirmed_urls = set(data.duplicate_confirm_urls or [])
         confirmed_keys = {key for key in (_normalize_duplicate_key(url, data.platform) for url in confirmed_urls) if key}
