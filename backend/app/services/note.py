@@ -443,9 +443,15 @@ class NoteGenerator:
             titled_markdown_path = note_markdown_path(task_id, title=audio_meta.title)
             titled_markdown_path.write_text(markdown or '', encoding='utf-8')
 
-            # 保存记录到数据库
+            # 保存记录到数据库（title 必须在入库时就写好，否则前端 fallback 会显示 video_id）
             self._update_status(task_id, TaskStatus.SAVING)
-            self._save_metadata(video_id=audio_meta.video_id, platform=platform, task_id=task_id)
+            self._save_metadata(
+                video_id=audio_meta.video_id,
+                platform=platform,
+                task_id=task_id,
+                title=audio_meta.title or None,
+                source_url=str(video_url),
+            )
 
             self._update_status(task_id, TaskStatus.SUCCESS)
             logger.info(f"笔记生成成功 (task_id={task_id})")
@@ -939,16 +945,31 @@ class NoteGenerator:
         """
         return extract_screenshot_timestamps(markdown)
 
-    def _save_metadata(self, video_id: str, platform: str, task_id: str) -> None:
+    def _save_metadata(
+        self,
+        video_id: str,
+        platform: str,
+        task_id: str,
+        title: Optional[str] = None,
+        source_url: Optional[str] = None,
+    ) -> None:
         """
         将生成的笔记任务记录插入数据库
 
         :param video_id: 视频 ID
         :param platform: 平台标识
         :param task_id: 任务 ID
+        :param title: 视频标题（入库时就写好，避免前端 fallback 显示 video_id）
+        :param source_url: 视频来源 URL
         """
         try:
-            insert_video_task(video_id=video_id, platform=platform, task_id=task_id)
+            insert_video_task(
+                video_id=video_id,
+                platform=platform,
+                task_id=task_id,
+                title=title,
+                source_url=source_url,
+            )
             logger.info(f"已保存任务记录到数据库 (video_id={video_id}, platform={platform}, task_id={task_id})")
         except Exception as e:
             logger.error(f"保存任务记录失败：{e}")
