@@ -575,6 +575,8 @@ class DouyinDownloader(Downloader):
             ytdlp_duration = ytdlp_info.get('duration', 0)
             ytdlp_cover = ytdlp_info.get('thumbnail')
             ytdlp_tags = ytdlp_info.get('tags') or ''
+            ytdlp_author = ytdlp_info.get('uploader') or ytdlp_info.get('channel')
+            ytdlp_author_id = ytdlp_info.get('uploader_id') or ytdlp_info.get('channel_id')
 
             # 音频文件已缓存：直接复用，避免重复下载，同时用 yt-dlp 真实标题
             if cached_audio and os.path.exists(cached_audio) and os.path.getsize(cached_audio) > 0:
@@ -588,6 +590,8 @@ class DouyinDownloader(Downloader):
                     video_id=ytdlp_video_id,
                     raw_info={'tags': ytdlp_tags},
                     video_path=None,
+                    author=ytdlp_author,
+                    author_unique_id=str(ytdlp_author_id) if ytdlp_author_id else None,
                 )
 
             if skip_download:
@@ -600,6 +604,8 @@ class DouyinDownloader(Downloader):
                     video_id=ytdlp_video_id,
                     raw_info={'tags': ytdlp_tags},
                     video_path=None,
+                    author=ytdlp_author,
+                    author_unique_id=str(ytdlp_author_id) if ytdlp_author_id else None,
                 )
 
             if ytdlp_media_url:
@@ -637,6 +643,8 @@ class DouyinDownloader(Downloader):
                     video_id=ytdlp_video_id,
                     raw_info={'tags': ytdlp_tags},
                     video_path=None,
+                    author=ytdlp_author,
+                    author_unique_id=str(ytdlp_author_id) if ytdlp_author_id else None,
                 )
             else:
                 logger.warning('yt-dlp 提取成功但未返回 URL，回退 detail API')
@@ -656,6 +664,11 @@ class DouyinDownloader(Downloader):
             cover_url = detail['video']['cover']['url_list'][0]
         detail_aweme_id = detail['aweme_id']
 
+        # mobile API 返回 author（不是 owner）
+        detail_author = detail.get('author', {}) or {}
+        detail_author_nick = detail_author.get('nickname', '')
+        detail_author_uid = detail_author.get('unique_id', '') or detail_author.get('short_id', '')
+
         # 音频文件已缓存：直接复用，避免重复下载，同时用 detail API 真实标题
         if cached_audio and os.path.exists(cached_audio) and os.path.getsize(cached_audio) > 0:
             logger.info('复用抖音音频缓存（detail 标题），跳过下载: %s', cached_audio)
@@ -668,6 +681,8 @@ class DouyinDownloader(Downloader):
                 video_id=detail_aweme_id,
                 raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
                 video_path=None,
+                author=detail_author_nick or None,
+                author_unique_id=detail_author_uid or None,
             )
 
         if skip_download:
@@ -680,6 +695,8 @@ class DouyinDownloader(Downloader):
                 video_id=detail_aweme_id,
                 raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
                 video_path=None,
+                author=detail_author_nick or None,
+                author_unique_id=detail_author_uid or None,
             )
 
         media_url = None
@@ -731,6 +748,8 @@ class DouyinDownloader(Downloader):
             video_id=detail_aweme_id,
             raw_info={'tags': detail.get('caption', '') + ''.join(tags)},
             video_path=None,
+            author=detail_author_nick or None,
+            author_unique_id=detail_author_uid or None,
         )
 
     def download_video(self, video_url: str, output_dir: Union[str, None] = None) -> str:

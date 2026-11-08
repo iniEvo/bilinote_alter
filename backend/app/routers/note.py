@@ -541,6 +541,77 @@ def _validate_platform_video_id(video_url: str, platform: str):
     return None
 
 
+def _check_batch_author_match(video_url: str, platform: str, batch_name: str | None) -> dict | None:
+    """校验视频真实作者是否属于 batch_name 指定的博主。
+
+    仅当 batch_name 非空时才校验；校验失败返回 warning dict（调用方可选择
+    强制拦截或只提示），校验跳过/通过返回 None。
+    """
+    if not batch_name or platform != 'douyin':
+        return None
+
+    try:
+        import requests as _req
+        from pathlib import Path as _Path
+        import json as _j
+
+        aweme_id = extract_video_id(video_url, platform)
+        if not aweme_id:
+            return None
+
+        # 读 Cookie
+        cookie_str = ''
+        try:
+            # resolve_app_path 返回相对路径时需要组合 backend 目录
+            cfg_rel = resolve_app_path('config/downloader.json')
+            cfg_path = _Path(cfg_rel)
+            if not cfg_path.is_absolute():
+                cfg_path = _Path.cwd() / 'backend' / cfg_rel if not _Path.cwd().name == 'backend' else _Path.cwd() / cfg_rel
+            if cfg_path.exists():
+                cookie_str = _j.loads(cfg_path.read_text()).get('douyin', {}).get('cookie', '')
+        except Exception:
+            pass
+
+        headers = {
+            'User-Agent': (
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 '
+                'Mobile/15E148 Safari/604.1'
+            ),
+            'Accept': 'application/json',
+            'Cookie': cookie_str or '',
+        }
+        resp = _req.get(
+            f'https://api5-normal-c-hl.amemv.com/aweme/v1/aweme/detail/?aweme_id={aweme_id}',
+            headers=headers, timeout=8,
+        )
+        data = resp.json()
+        detail = data.get('aweme_detail') or {}
+        author = detail.get('author') or {}
+        nick = (author.get('nickname') or '').strip()
+        if not nick:
+            return None  # 拿不到作者信息就不拦
+
+        # 宽松比对：直接包含或提取核心名包含
+        core_batch = batch_name.replace(' ', '').split('(')[0].split('（')[0]
+        core_nick = nick.replace(' ', '').split('(')[0].split('（')[0]
+        is_match = (
+            batch_name in nick or nick in batch_name
+            or core_batch in core_nick or core_nick in core_batch
+        )
+        if not is_match:
+            return {
+                'reason': 'author_mismatch',
+                'batch_name': batch_name,
+                'real_author': nick,
+                'video_id': aweme_id,
+                'msg': f'该视频真实作者是「{nick}」，和当前项目「{batch_name}」可能不属于同一博主',
+            }
+        return None
+    except Exception:
+        return None  # 校验失败不阻塞提交
+
+
 def _check_duplicate_response(data: VideoRequest):
     duplicate = _find_duplicate_task_with_fallback(data.video_url, data.platform)
     if not duplicate or data.force_regenerate or duplicate['task_id'] == data.task_id:
@@ -1168,6 +1239,20 @@ def generate_notes_batch(data: BatchVideoRequest, background_tasks: BackgroundTa
                     'code': payload.get('code'),
                     'msg': payload.get('msg'),
                     'reason': (payload.get('data') or {}).get('reason'),
+                })
+                continue
+
+            # 校验抖音作者与 batch 归属（不匹配时默认不入队，提示用户）
+            author_warning = _check_batch_author_match(single.video_url, single.platform, batch_name)
+            if author_warning:
+                items.append({
+                    'video_url': url,
+                    'code': 409,
+                    'msg': author_warning['msg'],
+                    'skipped': True,
+                    'reason': 'author_mismatch',
+                    'real_author': author_warning['real_author'],
+                    'batch_name': author_warning['batch_name'],
                 })
                 continue
 
